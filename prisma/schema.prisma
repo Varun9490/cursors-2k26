@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String?
+  createdAt DateTime @default(now())
+  
+  documents Document[]
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  userId     String
+  content    String   @db.Text
+  filename   String
+  uploadedAt DateTime @default(now())
+
+  user       User               @relation(fields: [userId], references: [id])
+  report     PlagiarismReport?
+  citations  Citation[]
+}
+
+
+model PlagiarismReport {
+  id               String   @id @default(cuid())
+  documentId       String   @unique
+  originalityScore Float
+  matchedSources   Json
+  createdAt        DateTime @default(now())
+
+  document         Document @relation(fields: [documentId], references: [id])
+  matches          PlagiarismMatch[]
+}
+
+model PlagiarismMatch {
+  id              String   @id @default(cuid())
+  reportId        String
+  originalText    String   @db.Text
+  matchedText     String   @db.Text
+  sourceUrl       String
+  sourceTitle     String
+  similarityScore Float
+  matchType       String // DIRECT, PARAPHRASED, SIMILAR, ORIGINAL
+  position        Json     // { startIndex, endIndex }
+  createdAt       DateTime @default(now())
+
+  report          PlagiarismReport @relation(fields: [reportId], references: [id])
+}
+
+model Citation {
+  id                  String   @id @default(cuid())
+  documentId          String
+  citationText        String   @db.Text
+  validityStatus      String   // VERIFIED, SUSPICIOUS, INVALID
+  validityScore       Int      @default(0)
+  issues              Json
+  verificationDetails Json?    // { doi, scholar, url, ai }
+  suggestedCorrection String?  @db.Text
+  verifiedAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  document            Document @relation(fields: [documentId], references: [id])
+}
