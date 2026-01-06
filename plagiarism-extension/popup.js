@@ -1,6 +1,7 @@
 // ================= API BASE URL =================
-// Change this to your production URL after deployment
-const API_BASE_URL = 'https://cursors-2k26.vercel.app';
+// For local development, use localhost
+// For production, use: 'https://cursors-2k26.vercel.app'
+const API_BASE_URL = 'http://localhost:3000';
 
 let currentMode = 'text';
 
@@ -87,7 +88,7 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
             showResult(`${originalityScore}%`, scoreType, status, details);
         } catch (err) {
             console.error(err);
-            showResult('Error', 'low', 'Connection Failed', 'Check your internet connection');
+            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
         }
     });
 });
@@ -146,41 +147,58 @@ async function handleImageUpload(file) {
             data.isLikelyAI ? 'AI Generated' : 'Real Image',
             data.isLikelyAI ? 'low' : 'high', // low score color (red) for AI, high (green) for Real
             data.isLikelyAI ? `${Math.round(data.aiProbability)}% AI Probability` : 'Likely Authentic',
-            data.reasoning || data.artifacts.join(', ')
+            data.reasoning || (data.artifacts ? data.artifacts.join(', ') : 'Analysis complete')
         );
 
     } catch (err) {
-        showResult('Error', 'low', 'Analysis Failed', 'Check your internet connection');
+        showResult('Error', 'low', 'Analysis Failed', 'Is localhost:3000 running?');
     }
 }
 
-// ================= TEXT & PAGE CHECK (Existing) =================
+// ================= TEXT CHECK =================
 document.getElementById('checkSelection').addEventListener('click', async () => {
-    // Reuse existing text checking logic logic here or trigger logic similar to verified code
-    // For brevity, just calling the API same as before but simplified for this update
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     chrome.scripting.executeScript({
         target: { tabId: tab.id },
         function: () => window.getSelection().toString()
     }, async (results) => {
         const text = results[0]?.result;
-        if (!text) return alert('Select text first');
+        if (!text || text.length < 20) {
+            alert('Please select more text (at least 20 characters)');
+            return;
+        }
 
         showLoading();
         try {
-            const res = await fetch(`${API_BASE_URL}/api/plagiarism/semantic`, {
+            // Use the analyze/page endpoint which doesn't require auth
+            const res = await fetch(`${API_BASE_URL}/api/analyze/page`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, threshold: 0.5 })
+                body: JSON.stringify({
+                    textContent: text,
+                    html: `<html><body>${text}</body></html>`
+                })
             });
             const data = await res.json();
+
+            if (data.error) {
+                showResult('Error', 'low', 'Analysis Failed', data.error);
+                return;
+            }
+
+            const score = data.overallScore || 0;
+            const plagScore = data.plagiarismAnalysis?.originalityScore || score;
+
             showResult(
-                Math.round(data.overallScore) + '%',
-                data.overallScore > 80 ? 'high' : 'low',
-                data.overallScore > 80 ? 'Original Content' : 'Potential Plagiarism',
-                `${data.totalMatches} matches found`
+                Math.round(plagScore) + '%',
+                plagScore >= 70 ? 'high' : (plagScore >= 40 ? 'medium' : 'low'),
+                plagScore >= 70 ? '✅ Original Content' : (plagScore >= 40 ? '⚠️ Some Similarity' : '❌ Potential Plagiarism'),
+                `🤖 AI Score: ${data.contentAnalysis?.aiScore || 0}%\n📋 Matches: ${data.plagiarismAnalysis?.matchCount || 0}`
             );
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+        }
     });
 });
 
@@ -278,7 +296,7 @@ document.getElementById('checkPage').addEventListener('click', async () => {
 
         } catch (err) {
             console.error(err);
-            showResult('Error', 'low', 'Connection Failed', 'Check your internet connection');
+            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
         }
     });
 });
