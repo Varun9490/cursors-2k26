@@ -1,5 +1,8 @@
 // Background service worker for context menu and badge updates
 
+// API Base URL - Change this for production
+const API_BASE_URL = 'https://cursors-2k26.vercel.app';
+
 // Create context menu on install
 chrome.runtime.onInstalled.addListener(() => {
     console.log('PlagDetect Extension Installed');
@@ -37,11 +40,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     chrome.action.setBadgeBackgroundColor({ color: '#667eea' });
 
     try {
-        let endpoint = 'http://localhost:3000/api/plagiarism/semantic';
+        let endpoint = `${API_BASE_URL}/api/plagiarism/semantic`;
         let body = { text, threshold: 0.5, filename: 'Context Menu Selection' };
 
         if (info.menuItemId === 'checkCodePlagiarism') {
-            endpoint = 'http://localhost:3000/api/plagiarism/code';
+            endpoint = `${API_BASE_URL}/api/plagiarism/code`;
             body = { code: text, language: 'javascript' };
         }
 

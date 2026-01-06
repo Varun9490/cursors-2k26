@@ -1,3 +1,7 @@
+// ================= API BASE URL =================
+// Change this to your production URL after deployment
+const API_BASE_URL = 'https://cursors-2k26.vercel.app';
+
 let currentMode = 'text';
 
 // Tab Switching Logic
@@ -35,7 +39,7 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
 
         try {
             // Call plagiarism detection API for code
-            const res = await fetch('http://localhost:3000/api/plagiarism/code', {
+            const res = await fetch(`${API_BASE_URL}/api/plagiarism/code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language })
@@ -83,7 +87,7 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
             showResult(`${originalityScore}%`, scoreType, status, details);
         } catch (err) {
             console.error(err);
-            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+            showResult('Error', 'low', 'Connection Failed', 'Check your internet connection');
         }
     });
 });
@@ -131,7 +135,7 @@ async function handleImageUpload(file) {
         const formData = new FormData();
         formData.append('image', file);
 
-        const res = await fetch('http://localhost:3000/api/analyze/image', {
+        const res = await fetch(`${API_BASE_URL}/api/analyze/image`, {
             method: 'POST',
             body: formData
         });
@@ -146,7 +150,7 @@ async function handleImageUpload(file) {
         );
 
     } catch (err) {
-        showResult('Error', 'low', 'Analysis Failed', 'Is localhost:3000 running?');
+        showResult('Error', 'low', 'Analysis Failed', 'Check your internet connection');
     }
 }
 
@@ -164,7 +168,7 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
 
         showLoading();
         try {
-            const res = await fetch('http://localhost:3000/api/plagiarism/semantic', {
+            const res = await fetch(`${API_BASE_URL}/api/plagiarism/semantic`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text, threshold: 0.5 })
@@ -206,7 +210,7 @@ document.getElementById('checkPage').addEventListener('click', async () => {
         const pageData = results[0].result;
 
         try {
-            const res = await fetch('http://localhost:3000/api/analyze/page', {
+            const res = await fetch(`${API_BASE_URL}/api/analyze/page`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -274,7 +278,7 @@ document.getElementById('checkPage').addEventListener('click', async () => {
 
         } catch (err) {
             console.error(err);
-            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+            showResult('Error', 'low', 'Connection Failed', 'Check your internet connection');
         }
     });
 });

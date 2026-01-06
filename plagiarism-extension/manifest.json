@@ -15,6 +15,7 @@
         "scripting"
     ],
     "host_permissions": [
+        "https://cursors-2k26.vercel.app/*",
         "http://localhost:3000/*",
         "<all_urls>"
     ],
