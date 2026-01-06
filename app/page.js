@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 // import Hero3D from '@/components/Hero3D'; // Replaced with dynamic import
 import FeatureCard from '@/components/FeatureCard';
 import Example3DCard from '@/components/Example3DCard'; // New import
+import AddToChromeButton from '@/components/AddToChromeButton';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Shield, Search, FileText, Zap } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
@@ -62,9 +63,7 @@ export default function LandingPage() {
                   Start Scanning Now <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full border-white/20 hover:bg-white/10 glass">
-                View Demo
-              </Button>
+              <AddToChromeButton />
             </motion.div>
           </motion.div>
         </div>

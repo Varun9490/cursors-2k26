@@ -73,25 +73,58 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## 🧩 Chrome Extension Setup
 
-The extension allows you to check plagiarism directly from any webpage.
+The extension allows you to check plagiarism directly from any webpage, including:
+- ✅ Selected text on any website
+- ✅ Code snippets from GitHub, StackOverflow, etc.
+- ✅ **Full website content analysis** (checks entire page for AI content & SEO)
+- ✅ Uploaded images for AI detection
 
-### Installation Steps
+### 📥 Installation Steps (Step-by-Step)
 
-1. **Open Chrome Extensions**
-   - Go to `chrome://extensions/` in your browser
-   - Or: Menu → More Tools → Extensions
+#### Step 1: Open Chrome Extensions Page
+- Open Google Chrome browser
+- Type `chrome://extensions/` in the address bar and press Enter
+- **OR** click the 3-dot menu (⋮) → More Tools → Extensions
 
-2. **Enable Developer Mode**
-   - Toggle the "Developer mode" switch in the top-right corner
+#### Step 2: Enable Developer Mode
+- Look at the **top-right corner** of the Extensions page
+- You'll see a toggle switch labeled "Developer mode"
+- **Turn it ON** (toggle should be blue)
 
-3. **Load the Extension**
-   - Click "Load unpacked"
-   - Navigate to: `plagiarism-detector/plagiarism-extension/`
-   - Select the folder
+#### Step 3: Load the Extension
+- After enabling Developer mode, you'll see new buttons appear
+- Click the **"Load unpacked"** button (top-left area)
+- A file browser will open
+- Navigate to your project folder: `plagiarism-detector/plagiarism-extension/`
+- Select the `plagiarism-extension` folder and click "Select Folder"
 
-4. **Pin the Extension** (Optional)
-   - Click the puzzle icon in Chrome toolbar
-   - Find "PlagDetect" and click the pin icon
+#### Step 4: Verify Installation
+- You should see "PlagDetect - AI Plagiarism Checker" in your extensions list
+- If there are any errors, they will be shown in red - check the troubleshooting section below
+
+#### Step 5: Pin the Extension (Recommended)
+- Click the **puzzle piece icon** (🧩) in Chrome's toolbar (top-right)
+- Find "PlagDetect - AI Plagiarism Checker" in the list
+- Click the **pin icon** (📌) next to it
+- The extension icon will now always be visible in your toolbar
+
+### ⚠️ Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Extension not loading | Make sure you selected the `plagiarism-extension` folder, not the root `plagiarism-detector` folder |
+| "Service worker registration failed" | Refresh the extension (click the refresh icon on the extension card) |
+| "Cannot access this page" | Some pages (chrome://, extension pages) are restricted. Try on a regular website |
+| "Connection Failed" | Make sure the backend server is running (`npm run dev` on port 3000) |
+| Icons not showing | The icons folder may be missing. Check that `plagiarism-extension/icons/` exists |
+
+### ✅ Quick Test
+
+1. Make sure backend is running: `npm run dev`
+2. Go to any website (e.g., https://google.com)
+3. Click the PlagDetect extension icon
+4. Click "📄 Analyze Full Page"
+5. You should see analysis results within a few seconds
 
 ### Using the Extension
 
@@ -101,6 +134,16 @@ The extension allows you to check plagiarism directly from any webpage.
 3. Make sure "Text" tab is active
 4. Click "🔍 Check Selected Text"
 5. View the originality score and analysis
+
+#### 🌐 Full Website Plagiarism Check
+1. Navigate to any website you want to analyze
+2. Click the PlagDetect extension icon
+3. In the "Text" tab, click "📄 Analyze Full Page"
+4. The extension will scan the entire website for:
+   - **AI-generated content** (ChatGPT, Claude patterns)
+   - **SEO score** (meta tags, headings, structure)
+   - **Content quality** (thin content, generic phrases)
+5. View comprehensive analysis with recommendations
 
 #### 💻 Code Plagiarism Check
 1. Select code on any webpage (GitHub, StackOverflow, etc.)

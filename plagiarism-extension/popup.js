@@ -180,6 +180,105 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
     });
 });
 
+// ================= FULL PAGE ANALYSIS =================
+document.getElementById('checkPage').addEventListener('click', async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    showLoading();
+
+    // Get page content
+    chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        function: () => {
+            return {
+                html: document.documentElement.outerHTML,
+                textContent: document.body.innerText,
+                title: document.title,
+                url: window.location.href
+            };
+        }
+    }, async (results) => {
+        if (!results || !results[0] || !results[0].result) {
+            showResult('Error', 'low', 'Access Denied', 'Cannot access this page. Try a different website.');
+            return;
+        }
+
+        const pageData = results[0].result;
+
+        try {
+            const res = await fetch('http://localhost:3000/api/analyze/page', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    html: pageData.html,
+                    textContent: pageData.textContent,
+                    url: pageData.url
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.error) {
+                showResult('Error', 'low', 'Analysis Failed', data.error);
+                return;
+            }
+
+            // Build result display
+            const overallScore = data.overallScore || 50;
+            let scoreType = overallScore >= 70 ? 'high' : (overallScore >= 40 ? 'medium' : 'low');
+
+            // Determine status based on verdict
+            let status;
+            switch (data.overallVerdict) {
+                case 'ORIGINAL':
+                    status = '✅ Original Content';
+                    break;
+                case 'AI_GENERATED':
+                    status = '❌ AI-Generated Content';
+                    break;
+                case 'PLAGIARIZED':
+                    status = '❌ Plagiarism Detected';
+                    break;
+                default:
+                    status = '⚠️ Mixed Content';
+            }
+
+            // Build details
+            let details = [];
+
+            // Plagiarism info (show first if detected)
+            if (data.plagiarismAnalysis) {
+                const plagScore = data.plagiarismAnalysis.originalityScore || 100;
+                details.push(`📋 Originality: ${plagScore}%`);
+                if (data.plagiarismAnalysis.matchCount > 0) {
+                    details.push(`   ${data.plagiarismAnalysis.matchCount} matching sources found`);
+                }
+            }
+
+            // AI detection info
+            if (data.contentAnalysis) {
+                details.push(`🤖 AI Probability: ${data.contentAnalysis.aiScore || 0}%`);
+            }
+
+            // SEO info
+            if (data.seoAnalysis) {
+                details.push(`📊 SEO Score: ${data.seoAnalysis.score}%`);
+            }
+
+            // Recommendations
+            if (data.recommendations?.length > 0) {
+                details.push('\n' + data.recommendations.slice(0, 2).join('\n'));
+            }
+
+            showResult(`${overallScore}%`, scoreType, status, details.join('\n'));
+
+        } catch (err) {
+            console.error(err);
+            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+        }
+    });
+});
+
 
 // Helper UI Functions
 function showLoading() {
