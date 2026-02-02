@@ -373,15 +373,17 @@ export default function AddToChromeButton() {
 
     return (
         <>
-            {/* Button - Always rendered */}
-            <Button
-                size="lg"
-                onClick={handleOpenModal}
-                className="h-14 px-8 text-lg rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:scale-105 transition-all shadow-[0_0_20px_rgba(59,130,246,0.5)] flex items-center gap-2"
-            >
-                <Chrome className="w-5 h-5" />
-                Add to Chrome
-            </Button>
+            {/* Button - Always rendered in a stable container */}
+            <div style={{ display: 'inline-block' }}>
+                <Button
+                    size="lg"
+                    onClick={handleOpenModal}
+                    className="h-14 px-8 text-lg rounded-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition-colors duration-200 shadow-[0_0_20px_rgba(59,130,246,0.5)] hover:shadow-[0_0_30px_rgba(59,130,246,0.7)] flex items-center gap-2"
+                >
+                    <Chrome className="w-5 h-5" />
+                    Add to Chrome
+                </Button>
+            </div>
 
             {/* Modal - Rendered via Portal to body */}
             {mounted && showModal && createPortal(modalContent, document.body)}
