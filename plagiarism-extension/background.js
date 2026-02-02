@@ -1,8 +1,7 @@
 // Background service worker for context menu and badge updates
 
-// API Base URL - For local development use localhost
-// For production, change to: 'https://cursors-2k26.vercel.app'
-const API_BASE_URL = 'http://localhost:3000';
+// API Base URL - Production
+const API_BASE_URL = 'https://cursors-2k26.vercel.app';
 
 // Create context menu on install
 chrome.runtime.onInstalled.addListener(() => {

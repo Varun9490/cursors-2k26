@@ -1,7 +1,5 @@
 // ================= API BASE URL =================
-// For local development, use localhost
-// For production, use: 'https://cursors-2k26.vercel.app'
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://cursors-2k26.vercel.app';
 
 let currentMode = 'text';
 
@@ -88,7 +86,7 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
             showResult(`${originalityScore}%`, scoreType, status, details);
         } catch (err) {
             console.error(err);
-            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+            showResult('Error', 'low', 'Connection Failed', 'Unable to reach server. Please try again.');
         }
     });
 });
@@ -151,7 +149,7 @@ async function handleImageUpload(file) {
         );
 
     } catch (err) {
-        showResult('Error', 'low', 'Analysis Failed', 'Is localhost:3000 running?');
+        showResult('Error', 'low', 'Analysis Failed', 'Unable to reach server. Please try again.');
     }
 }
 
@@ -197,7 +195,7 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
             );
         } catch (e) {
             console.error(e);
-            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+            showResult('Error', 'low', 'Connection Failed', 'Unable to reach server. Please try again.');
         }
     });
 });
@@ -296,7 +294,7 @@ document.getElementById('checkPage').addEventListener('click', async () => {
 
         } catch (err) {
             console.error(err);
-            showResult('Error', 'low', 'Connection Failed', 'Is localhost:3000 running?');
+            showResult('Error', 'low', 'Connection Failed', 'Unable to reach server. Please try again.');
         }
     });
 });

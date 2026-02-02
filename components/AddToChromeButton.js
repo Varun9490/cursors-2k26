@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { X, Download, Chrome, CheckCircle, Copy, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { X, Download, Chrome, CheckCircle, Copy, Check, ExternalLink } from 'lucide-react';
 
 export default function AddToChromeButton() {
     const [showModal, setShowModal] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const [copied, setCopied] = useState(false);
+    const [downloading, setDownloading] = useState(false);
 
     // Prevent body scroll when modal is open
     useEffect(() => {
@@ -22,11 +22,37 @@ export default function AddToChromeButton() {
         };
     }, [showModal]);
 
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            // Download the extension ZIP file from public folder
+            const link = document.createElement('a');
+            link.href = '/plagiarism-extension.zip';
+            link.download = 'plagdetect-extension.zip';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Move to next step after download
+            setTimeout(() => {
+                setDownloading(false);
+                setCurrentStep(1);
+            }, 1000);
+        } catch (err) {
+            console.error('Download failed:', err);
+            setDownloading(false);
+        }
+    };
+
     const steps = [
         {
             title: 'Download Extension',
-            description: 'Get the extension folder from GitHub',
-            link: 'https://github.com/Varun9490/cursors-2k26'
+            description: 'Click the button below to download the extension',
+            action: 'download'
+        },
+        {
+            title: 'Extract ZIP File',
+            description: 'Extract the downloaded ZIP to a folder on your computer'
         },
         {
             title: 'Open Extensions Page',
@@ -35,11 +61,11 @@ export default function AddToChromeButton() {
         },
         {
             title: 'Enable Developer Mode',
-            description: 'Toggle "Developer mode" ON (top-right)'
+            description: 'Toggle "Developer mode" ON (top-right corner)'
         },
         {
             title: 'Load Extension',
-            description: 'Click "Load unpacked" → Select folder'
+            description: 'Click "Load unpacked" → Select the extracted folder'
         },
         {
             title: 'Done!',
@@ -102,12 +128,14 @@ export default function AddToChromeButton() {
                         onClick={(e) => e.stopPropagation()}
                         style={{
                             width: '90%',
-                            maxWidth: '420px',
+                            maxWidth: '460px',
                             backgroundColor: '#0f172a',
                             borderRadius: '20px',
                             padding: '24px',
                             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)'
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            maxHeight: '90vh',
+                            overflowY: 'auto'
                         }}
                     >
                         {/* Header */}
@@ -129,7 +157,7 @@ export default function AddToChromeButton() {
                                         Install Extension
                                     </h3>
                                     <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>
-                                        5 easy steps
+                                        {steps.length} easy steps
                                     </p>
                                 </div>
                             </div>
@@ -209,6 +237,39 @@ export default function AddToChromeButton() {
                                             {step.description}
                                         </p>
 
+                                        {/* Download button */}
+                                        {step.action === 'download' && currentStep === index && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDownload();
+                                                }}
+                                                disabled={downloading}
+                                                style={{
+                                                    marginTop: '8px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    width: '100%',
+                                                    padding: '10px 16px',
+                                                    borderRadius: '8px',
+                                                    border: 'none',
+                                                    background: downloading
+                                                        ? 'rgba(59, 130, 246, 0.3)'
+                                                        : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                                                    color: '#ffffff',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor: downloading ? 'wait' : 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                <Download style={{ width: '16px', height: '16px' }} />
+                                                {downloading ? 'Downloading...' : 'Download Extension (.zip)'}
+                                            </button>
+                                        )}
+
                                         {/* Copy URL button */}
                                         {step.copyText && currentStep === index && (
                                             <button
@@ -222,21 +283,21 @@ export default function AddToChromeButton() {
                                                     alignItems: 'center',
                                                     justifyContent: 'space-between',
                                                     width: '100%',
-                                                    padding: '6px 10px',
+                                                    padding: '8px 12px',
                                                     borderRadius: '6px',
                                                     border: 'none',
                                                     backgroundColor: 'rgba(59, 130, 246, 0.2)',
                                                     color: '#60a5fa',
-                                                    fontSize: '11px',
+                                                    fontSize: '12px',
                                                     fontFamily: 'monospace',
                                                     cursor: 'pointer'
                                                 }}
                                             >
                                                 <span>{step.copyText}</span>
                                                 {copied ? (
-                                                    <Check style={{ width: '12px', height: '12px', color: '#22c55e' }} />
+                                                    <Check style={{ width: '14px', height: '14px', color: '#22c55e' }} />
                                                 ) : (
-                                                    <Copy style={{ width: '12px', height: '12px' }} />
+                                                    <Copy style={{ width: '14px', height: '14px' }} />
                                                 )}
                                             </button>
                                         )}
@@ -261,7 +322,7 @@ export default function AddToChromeButton() {
                                                     textDecoration: 'none'
                                                 }}
                                             >
-                                                <Download style={{ width: '12px', height: '12px' }} />
+                                                <ExternalLink style={{ width: '12px', height: '12px' }} />
                                                 Open GitHub
                                             </a>
                                         )}
