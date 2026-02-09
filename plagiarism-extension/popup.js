@@ -1,5 +1,9 @@
 // ================= API BASE URL =================
-const API_BASE_URL = 'https://cursors-2k26.vercel.app';
+// Automatically detect if running locally or use production
+const API_BASE_URL = 'http://localhost:3000'; // Default to local for testing
+
+// Fallback to production if local fails
+const PRODUCTION_URL = 'https://cursors-2k26.vercel.app';
 
 let currentMode = 'text';
 
@@ -53,6 +57,37 @@ function performOfflineAnalysis(text) {
     let verdict = score < 50 ? 'LIKELY_PLAGIARIZED' : score < 70 ? 'SUSPICIOUS' : score < 85 ? 'MOSTLY_ORIGINAL' : 'ORIGINAL';
 
     return { score, matches, matchCount: matches.length, verdict, isOffline: true };
+}
+
+// ================= API HELPER WITH FALLBACK =================
+async function fetchWithFallback(endpoint, options) {
+    // Try local first
+    try {
+        const localResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            signal: AbortSignal.timeout(10000)
+        });
+        if (localResponse.ok) {
+            return await localResponse.json();
+        }
+    } catch (localError) {
+        console.log('Local server unavailable, trying production...');
+    }
+
+    // Try production
+    try {
+        const prodResponse = await fetch(`${PRODUCTION_URL}${endpoint}`, {
+            ...options,
+            signal: AbortSignal.timeout(15000)
+        });
+        if (prodResponse.ok) {
+            return await prodResponse.json();
+        }
+        throw new Error('Production API error');
+    } catch (prodError) {
+        console.error('Both servers failed:', prodError);
+        throw prodError;
+    }
 }
 
 // ================= TAB SWITCHING =================
@@ -113,12 +148,11 @@ document.getElementById('aiCheck')?.addEventListener('click', async () => {
         showLoading();
 
         try {
-            const res = await fetch(`${API_BASE_URL}/api/analyze/page`, {
+            const data = await fetchWithFallback('/api/analyze/page', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ textContent: text, html: `<html><body>${text}</body></html>` })
             });
-            const data = await res.json();
 
             const aiScore = data.contentAnalysis?.aiScore || 0;
             const humanScore = 100 - aiScore;
@@ -139,9 +173,9 @@ document.getElementById('aiCheck')?.addEventListener('click', async () => {
 });
 
 // ================= CODE PLAGIARISM CHECK =================
-document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
+document.getElementById('verifyCodeBtn')?.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const language = document.getElementById('compilerSelect').value;
+    const language = document.getElementById('compilerSelect')?.value || 'auto';
 
     chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -156,12 +190,11 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
         showLoading();
 
         try {
-            const res = await fetch(`${API_BASE_URL}/api/plagiarism/code`, {
+            const data = await fetchWithFallback('/api/plagiarism/code', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, language })
             });
-            const data = await res.json();
 
             const originalityScore = data.originalityScore || 0;
             const aiScore = data.aiAnalysis?.aiScore || 0;
@@ -195,18 +228,18 @@ document.getElementById('verifyCodeBtn').addEventListener('click', async () => {
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 
-dropZone?.addEventListener('click', () => fileInput.click());
+dropZone?.addEventListener('click', () => fileInput?.click());
 
 dropZone?.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
 });
 
-dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone?.addEventListener('dragleave', () => dropZone?.classList.remove('dragover'));
 
 dropZone?.addEventListener('drop', (e) => {
     e.preventDefault();
-    dropZone.classList.remove('dragover');
+    dropZone?.classList.remove('dragover');
     if (e.dataTransfer.files.length) {
         handleImageUpload(e.dataTransfer.files[0]);
     }
@@ -223,9 +256,11 @@ async function handleImageUpload(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const img = document.getElementById('previewImage');
-        img.src = e.target.result;
-        img.style.display = 'block';
-        dropZone.style.display = 'none';
+        if (img) {
+            img.src = e.target.result;
+            img.style.display = 'block';
+        }
+        if (dropZone) dropZone.style.display = 'none';
     };
     reader.readAsDataURL(file);
 
@@ -235,12 +270,26 @@ async function handleImageUpload(file) {
         const formData = new FormData();
         formData.append('image', file);
 
-        const res = await fetch(`${API_BASE_URL}/api/analyze/image`, {
-            method: 'POST',
-            body: formData
-        });
+        // Try local first, then production
+        let data;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/analyze/image`, {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                data = await res.json();
+            } else {
+                throw new Error('Local failed');
+            }
+        } catch {
+            const res = await fetch(`${PRODUCTION_URL}/api/analyze/image`, {
+                method: 'POST',
+                body: formData
+            });
+            data = await res.json();
+        }
 
-        const data = await res.json();
         const score = data.isLikelyAI ? (100 - Math.round(data.aiProbability)) : 100;
 
         showResult(
@@ -257,7 +306,7 @@ async function handleImageUpload(file) {
 }
 
 // ================= TEXT CHECK =================
-document.getElementById('checkSelection').addEventListener('click', async () => {
+document.getElementById('checkSelection')?.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -271,7 +320,7 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
 
         showLoading();
         try {
-            const res = await fetch(`${API_BASE_URL}/api/analyze/page`, {
+            const data = await fetchWithFallback('/api/analyze/page', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -279,7 +328,6 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
                     html: `<html><body>${text}</body></html>`
                 })
             });
-            const data = await res.json();
 
             if (data.error) {
                 showResult(0, 'error', '❌ Analysis Failed', data.error);
@@ -295,6 +343,9 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
             details.push(`🤖 AI Score: ${aiScore}%`);
             if (data.plagiarismAnalysis?.matchCount > 0) {
                 details.push(`🔍 Matches: ${data.plagiarismAnalysis.matchCount}`);
+                if (data.plagiarismAnalysis?.webMatchCount > 0) {
+                    details.push(`🌐 Web Sources: ${data.plagiarismAnalysis.webMatchCount}`);
+                }
             }
 
             showResult(
@@ -319,7 +370,7 @@ document.getElementById('checkSelection').addEventListener('click', async () => 
 });
 
 // ================= FULL PAGE ANALYSIS =================
-document.getElementById('checkPage').addEventListener('click', async () => {
+document.getElementById('checkPage')?.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     showLoading();
@@ -341,7 +392,7 @@ document.getElementById('checkPage').addEventListener('click', async () => {
         const pageData = results[0].result;
 
         try {
-            const res = await fetch(`${API_BASE_URL}/api/analyze/page`, {
+            const data = await fetchWithFallback('/api/analyze/page', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -350,8 +401,6 @@ document.getElementById('checkPage').addEventListener('click', async () => {
                     url: pageData.url
                 })
             });
-
-            const data = await res.json();
 
             if (data.error) {
                 showResult(0, 'error', '❌ Analysis Failed', data.error);
@@ -366,6 +415,9 @@ document.getElementById('checkPage').addEventListener('click', async () => {
                 details.push(`📋 Originality: ${plagScore}%`);
                 if (data.plagiarismAnalysis.matchCount > 0) {
                     details.push(`   └─ ${data.plagiarismAnalysis.matchCount} sources found`);
+                }
+                if (data.plagiarismAnalysis.webMatchCount > 0) {
+                    details.push(`   └─ ${data.plagiarismAnalysis.webMatchCount} web matches`);
                 }
             }
             if (data.contentAnalysis) {
@@ -403,8 +455,10 @@ document.getElementById('checkPage').addEventListener('click', async () => {
 
 // ================= HELPER FUNCTIONS =================
 function showLoading() {
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('result').style.display = 'none';
+    const loading = document.getElementById('loading');
+    const result = document.getElementById('result');
+    if (loading) loading.style.display = 'block';
+    if (result) result.style.display = 'none';
 }
 
 function buildDetails(result) {
@@ -423,43 +477,53 @@ function buildDetails(result) {
 }
 
 function showResult(score, scoreType, status, details, verdict = 'UNKNOWN') {
-    document.getElementById('loading').style.display = 'none';
+    const loading = document.getElementById('loading');
     const resultDiv = document.getElementById('result');
-    resultDiv.style.display = 'block';
+
+    if (loading) loading.style.display = 'none';
+    if (resultDiv) resultDiv.style.display = 'block';
 
     // Score ring with CSS variable
     const scoreRing = document.getElementById('scoreRing');
-    scoreRing.style.setProperty('--score', score);
-    scoreRing.className = 'score-ring';
-    if (scoreType === 'high') scoreRing.classList.add('score-high');
-    else if (scoreType === 'medium') scoreRing.classList.add('score-medium');
-    else scoreRing.classList.add('score-low');
+    if (scoreRing) {
+        scoreRing.style.setProperty('--score', score);
+        scoreRing.className = 'score-ring';
+        if (scoreType === 'high') scoreRing.classList.add('score-high');
+        else if (scoreType === 'medium') scoreRing.classList.add('score-medium');
+        else scoreRing.classList.add('score-low');
+    }
 
     // Score value
     const scoreValue = document.getElementById('scoreValue');
-    if (scoreType === 'error') {
-        scoreValue.innerHTML = '!';
-    } else {
-        scoreValue.innerHTML = `${Math.round(score)}<small>%</small>`;
+    if (scoreValue) {
+        if (scoreType === 'error') {
+            scoreValue.innerHTML = '!';
+        } else {
+            scoreValue.innerHTML = `${Math.round(score)}<small>%</small>`;
+        }
     }
 
     // Status text
-    document.getElementById('statusText').textContent = status;
+    const statusText = document.getElementById('statusText');
+    if (statusText) statusText.textContent = status;
 
     // Verdict badge
     const verdictBadge = document.getElementById('verdictBadge');
-    verdictBadge.textContent = verdict.replace(/_/g, ' ');
-    verdictBadge.className = 'verdict-badge';
-    if (verdict.includes('ORIGINAL') || verdict === 'HUMAN' || verdict === 'AUTHENTIC') {
-        verdictBadge.classList.add('verdict-original');
-    } else if (verdict.includes('SUSPICIOUS') || verdict === 'MIXED' || verdict.includes('MOSTLY')) {
-        verdictBadge.classList.add('verdict-suspicious');
-    } else {
-        verdictBadge.classList.add('verdict-plagiarized');
+    if (verdictBadge) {
+        verdictBadge.textContent = verdict.replace(/_/g, ' ');
+        verdictBadge.className = 'verdict-badge';
+        if (verdict.includes('ORIGINAL') || verdict === 'HUMAN' || verdict === 'AUTHENTIC') {
+            verdictBadge.classList.add('verdict-original');
+        } else if (verdict.includes('SUSPICIOUS') || verdict === 'MIXED' || verdict.includes('MOSTLY')) {
+            verdictBadge.classList.add('verdict-suspicious');
+        } else {
+            verdictBadge.classList.add('verdict-plagiarized');
+        }
     }
 
     // Details
-    document.getElementById('detailsText').innerHTML = details.replace(/\n/g, '<br>');
+    const detailsText = document.getElementById('detailsText');
+    if (detailsText) detailsText.innerHTML = details.replace(/\n/g, '<br>');
 }
 
-console.log('PlagDetect popup.js loaded (v1.1)');
+console.log('PlagDetect popup.js loaded (v1.2 - with local/production fallback)');

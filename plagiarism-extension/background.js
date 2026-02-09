@@ -1,8 +1,9 @@
 // Background service worker for context menu and badge updates
-// Enhanced with offline pattern analysis fallback
+// Enhanced with offline pattern analysis fallback and local/production API support
 
-// API Base URL - Production
-const API_BASE_URL = 'https://cursors-2k26.vercel.app';
+// API Base URLs - Try local first, then production
+const API_BASE_URL = 'http://localhost:3000';
+const PRODUCTION_URL = 'https://cursors-2k26.vercel.app';
 
 // =====================================================
 // OFFLINE PATTERN ANALYSIS (works without server)
@@ -172,6 +173,51 @@ function performOfflineAnalysis(text) {
 }
 
 // =====================================================
+// API HELPER WITH FALLBACK
+// =====================================================
+async function fetchWithFallback(endpoint, options) {
+    // Try local first
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const localResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (localResponse.ok) {
+            console.log('Using local server');
+            return await localResponse.json();
+        }
+    } catch (localError) {
+        console.log('Local server unavailable, trying production...');
+    }
+
+    // Try production
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const prodResponse = await fetch(`${PRODUCTION_URL}${endpoint}`, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (prodResponse.ok) {
+            console.log('Using production server');
+            return await prodResponse.json();
+        }
+        throw new Error('Production API error');
+    } catch (prodError) {
+        console.error('Both servers failed:', prodError);
+        throw prodError;
+    }
+}
+
+// =====================================================
 // CREATE CONTEXT MENUS
 // =====================================================
 chrome.runtime.onInstalled.addListener(() => {
@@ -270,17 +316,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
         switch (info.menuItemId) {
             case 'checkTextPlagiarism':
-                endpoint = `${API_BASE_URL}/api/analyze/page`;
+                endpoint = '/api/analyze/page';
                 body = { textContent: text, html: `<html><body>${text}</body></html>` };
                 break;
 
             case 'checkCodePlagiarism':
-                endpoint = `${API_BASE_URL}/api/plagiarism/code`;
+                endpoint = '/api/plagiarism/code';
                 body = { code: text, language: 'auto' };
                 break;
 
             case 'checkAI':
-                endpoint = `${API_BASE_URL}/api/analyze/page`;
+                endpoint = '/api/analyze/page';
                 body = { textContent: text, html: `<html><body>${text}</body></html>` };
                 break;
 
@@ -288,15 +334,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 return;
         }
 
-        const res = await fetch(endpoint, {
+        const data = await fetchWithFallback(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
-
-        if (!res.ok) throw new Error('API Error');
-
-        const data = await res.json();
 
         let score, matchCount, verdict;
 
@@ -325,6 +367,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 matchCount,
                 verdict,
                 aiScore: data.contentAnalysis?.aiScore,
+                webMatchCount: data.plagiarismAnalysis?.webMatchCount,
                 isOffline: false,
                 timestamp: Date.now()
             }
@@ -393,6 +436,8 @@ setInterval(() => {
 chrome.commands?.onCommand?.addListener((command) => {
     if (command === 'quick-check') {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs || tabs.length === 0) return;
+
             chrome.scripting.executeScript({
                 target: { tabId: tabs[0].id },
                 function: () => window.getSelection().toString()
@@ -401,7 +446,20 @@ chrome.commands?.onCommand?.addListener((command) => {
                     const text = results[0].result;
                     if (text.length >= 20) {
                         const result = performOfflineAnalysis(text);
-                        chrome.storage.local.set({ lastResult: { ...result, timestamp: Date.now() } });
+
+                        chrome.action.setBadgeText({ text: Math.round(result.score) + '%' });
+                        chrome.action.setBadgeBackgroundColor({
+                            color: result.score >= 80 ? '#10B981' : result.score >= 50 ? '#F59E0B' : '#EF4444'
+                        });
+
+                        chrome.storage.local.set({
+                            lastResult: { ...result, timestamp: Date.now() }
+                        });
+
+                        showNotification(
+                            `Quick Check: ${Math.round(result.score)}%`,
+                            result.verdict.replace(/_/g, ' ')
+                        );
                     }
                 }
             });
@@ -409,4 +467,4 @@ chrome.commands?.onCommand?.addListener((command) => {
     }
 });
 
-console.log('PlagDetect background service worker loaded');
+console.log('PlagDetect background service worker loaded (v1.2)');
