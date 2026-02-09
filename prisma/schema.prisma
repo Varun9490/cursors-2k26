@@ -23,10 +23,20 @@ model Document {
   content    String   @db.Text
   filename   String
   uploadedAt DateTime @default(now())
+  
+  // Text fingerprint for quick similarity detection
+  contentHash    String?   @db.VarChar(64)  // SHA-256 hash of normalized content
+  wordCount      Int?
+  
+  user              User               @relation(fields: [userId], references: [id])
+  report            PlagiarismReport?
+  citations         Citation[]
+  fingerprints      DocumentFingerprint[]
+  similarDocuments  SimilarDocument[]  @relation("SourceDocument")
+  matchedBy         SimilarDocument[]  @relation("MatchedDocument")
 
-  user       User               @relation(fields: [userId], references: [id])
-  report     PlagiarismReport?
-  citations  Citation[]
+  @@index([userId, uploadedAt])
+  @@index([contentHash])
 }
 
 
@@ -36,9 +46,19 @@ model PlagiarismReport {
   originalityScore Float
   matchedSources   Json
   createdAt        DateTime @default(now())
+  
+  // Enhanced metadata
+  webMatchCount    Int?     @default(0)
+  patternMatchCount Int?    @default(0)
+  internalMatchCount Int?   @default(0)  // Matches with other documents in DB
+  processingTimeMs Int?
+  verdict          String?  // ORIGINAL, MOSTLY_ORIGINAL, SUSPICIOUS, LIKELY_PLAGIARIZED
 
   document         Document @relation(fields: [documentId], references: [id])
   matches          PlagiarismMatch[]
+
+  @@index([documentId, createdAt])
+  @@index([originalityScore])
 }
 
 model PlagiarismMatch {
@@ -46,14 +66,16 @@ model PlagiarismMatch {
   reportId        String
   originalText    String   @db.Text
   matchedText     String   @db.Text
-  sourceUrl       String
+  sourceUrl       String?
   sourceTitle     String
   similarityScore Float
-  matchType       String // DIRECT, PARAPHRASED, SIMILAR, ORIGINAL
-  position        Json     // { startIndex, endIndex }
+  matchType       String // DIRECT, PARAPHRASED, SIMILAR, PATTERN, INTERNAL
+  position        Json?    // { startIndex, endIndex }
   createdAt       DateTime @default(now())
 
   report          PlagiarismReport @relation(fields: [reportId], references: [id])
+
+  @@index([reportId])
 }
 
 model Citation {
@@ -69,4 +91,48 @@ model Citation {
   createdAt           DateTime @default(now())
 
   document            Document @relation(fields: [documentId], references: [id])
+
+  @@index([documentId])
+}
+
+// =====================================================
+// NEW: Document Fingerprinting for Internal Plagiarism Detection
+// =====================================================
+
+model DocumentFingerprint {
+  id          String   @id @default(cuid())
+  documentId  String
+  
+  // N-gram based fingerprints (shingles)
+  fingerprint String   @db.VarChar(64)  // Hash of text shingle
+  shingleText String?  @db.Text         // Original shingle text (optional, for debugging)
+  position    Int                        // Position in document
+  
+  createdAt   DateTime @default(now())
+
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([fingerprint])
+  @@index([documentId])
+}
+
+// Track similar documents found in the database
+model SimilarDocument {
+  id              String   @id @default(cuid())
+  sourceDocId     String
+  matchedDocId    String
+  
+  similarityScore Float    // 0-100 percentage
+  matchType       String   // EXACT, NEAR_DUPLICATE, PARTIAL
+  sharedFingerprints Int   // Number of matching fingerprints
+  
+  createdAt       DateTime @default(now())
+
+  sourceDocument  Document @relation("SourceDocument", fields: [sourceDocId], references: [id], onDelete: Cascade)
+  matchedDocument Document @relation("MatchedDocument", fields: [matchedDocId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceDocId, matchedDocId])
+  @@index([sourceDocId])
+  @@index([matchedDocId])
+  @@index([similarityScore])
 }

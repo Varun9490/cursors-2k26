@@ -3,228 +3,699 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --primary: #8B5CF6;
+      --primary-dark: #7C3AED;
+      --primary-light: #A78BFA;
+      --secondary: #06B6D4;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --dark: #0F172A;
+      --gray-900: #1E293B;
+      --gray-700: #334155;
+      --gray-500: #64748B;
+      --gray-400: #94A3B8;
+      --gray-200: #E2E8F0;
+      --gray-100: #F1F5F9;
+      --gray-50: #F8FAFC;
+      --white: #FFFFFF;
+      --glass: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.2);
+    }
+    
     body { 
-      width: 380px; 
-      font-family: 'Segoe UI', system-ui, sans-serif; 
-      padding: 20px; 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 520px;
+      width: 400px; 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+      padding: 0; 
+      background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4C1D95 100%);
+      min-height: 580px;
+      -webkit-font-smoothing: antialiased;
     }
-    .container {
-      background: white;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    
+    /* Header with glass effect */
+    .header {
+      padding: 20px 24px;
+      background: linear-gradient(180deg, rgba(139, 92, 246, 0.2) 0%, transparent 100%);
+      border-bottom: 1px solid var(--glass-border);
     }
-    .logo {
+    
+    .logo-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 12px;
     }
+    
     .logo-icon {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      border-radius: 10px;
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-weight: bold;
-      font-size: 18px;
+      font-size: 20px;
+      box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+      position: relative;
+      overflow: hidden;
     }
-    h1 { font-size: 20px; font-weight: 700; color: #1f2937; }
-    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
     
+    .logo-icon::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%);
+      border-radius: 12px 12px 0 0;
+    }
+    
+    .logo-text h1 {
+      font-size: 22px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--white) 0%, var(--gray-200) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    
+    .logo-text .subtitle {
+      font-size: 11px;
+      color: var(--gray-400);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+    
+    /* Main container */
+    .container {
+      padding: 20px 24px 24px;
+    }
+    
+    /* Modern tab design */
     .tabs {
       display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      background: #f3f4f6;
-      border-radius: 10px;
-      padding: 4px;
-    }
-    .tab {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      color: #6b7280;
-      transition: all 0.2s;
-    }
-    .tab.active {
-      background: white;
-      color: #667eea;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      gap: 6px;
+      margin-bottom: 20px;
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 14px;
+      padding: 5px;
+      border: 1px solid var(--glass-border);
     }
     
+    .tab {
+      flex: 1;
+      padding: 12px 8px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-400);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .tab-icon {
+      font-size: 18px;
+    }
+    
+    .tab:hover {
+      color: var(--white);
+      background: rgba(139, 92, 246, 0.2);
+    }
+    
+    .tab.active {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: var(--white);
+      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+    }
+    
+    /* Section styling */
+    .section {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .section.active {
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Glass card */
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    
+    /* Buttons */
     .btn {
       width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
+      padding: 16px 20px;
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
       font-weight: 600;
       font-size: 14px;
-      margin-bottom: 10px;
-      transition: transform 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
     }
-    .btn:hover { transform: translateY(-2px); }
+    
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, #9333EA 100%);
+      color: var(--white);
+      box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4);
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5);
+    }
     
     .btn-secondary {
-      background: white;
-      color: #667eea;
-      border: 2px solid #667eea;
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--primary-light);
+      border: 1px solid rgba(139, 92, 246, 0.3);
     }
-
-    /* Fixed & Improved CSS */
-    #codeSection { padding-top: 5px; }
     
-    .compiler-select {
-        width: 100%;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        margin-bottom: 12px;
-        font-size: 14px;
-        color: #1e293b;
-        background-color: #fff;
+    .btn-secondary:hover {
+      background: rgba(139, 92, 246, 0.25);
+      border-color: var(--primary);
     }
-
-    #verifyCodeBtn {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    
+    .btn-success {
+      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+      color: var(--white);
+      box-shadow: 0 4px 24px rgba(16, 185, 129, 0.4);
     }
-
-    /* Image Drop Zone */
-    .drop-zone {
-      display: block;
-      border: 2px dashed #cbd5e1;
-      border-radius: 12px;
-      padding: 30px 20px;
-      text-align: center;
-      background: #f8fafc;
-      transition: all 0.3s;
+    
+    .btn + .btn {
+      margin-top: 10px;
+    }
+    
+    /* Quick actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
       margin-bottom: 16px;
+    }
+    
+    .quick-btn {
+      padding: 14px 12px;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--gray-200);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    
+    .quick-btn:hover {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    
+    .quick-btn-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+      display: block;
+    }
+    
+    .quick-btn-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--gray-400);
+    }
+    
+    /* Select */
+    .select-wrapper {
+      position: relative;
+      margin-bottom: 14px;
+    }
+    
+    .select-wrapper select {
+      width: 100%;
+      padding: 14px 16px;
+      padding-right: 40px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--gray-200);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      appearance: none;
+      transition: all 0.2s;
+    }
+    
+    .select-wrapper select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    }
+    
+    .select-wrapper::after {
+      content: '▼';
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: var(--gray-400);
+      pointer-events: none;
+    }
+    
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed var(--glass-border);
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      background: rgba(15, 23, 42, 0.4);
+      transition: all 0.3s;
       cursor: pointer;
     }
-    .drop-zone:hover, .drop-zone.dragover {
-      border-color: #667eea;
-      background: #eff6ff;
-    }
-    .drop-icon { font-size: 32px; margin-bottom: 8px; display: block; }
-    .drop-text { font-size: 13px; color: #475569; font-weight: 600; }
     
-    #result, #imageResult { 
-      margin-top: 20px; 
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(139, 92, 246, 0.1);
+    }
+    
+    .drop-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      display: block;
+      filter: grayscale(100%);
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+    
+    .drop-zone:hover .drop-icon {
+      filter: grayscale(0%);
+      opacity: 1;
+    }
+    
+    .drop-text {
+      font-size: 14px;
+      color: var(--gray-400);
+      font-weight: 600;
+    }
+    
+    .drop-subtext {
+      font-size: 11px;
+      color: var(--gray-500);
+      margin-top: 4px;
+    }
+    
+    /* Loading */
+    #loading {
       display: none;
       text-align: center;
-      padding: 20px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
+      padding: 40px 20px;
     }
     
-    .loading { display: none; text-align: center; padding: 20px; }
+    .spinner-container {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 16px;
+    }
+    
     .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid #e5e7eb; border-top-color: #667eea;
+      width: 60px;
+      height: 60px;
+      border: 3px solid rgba(139, 92, 246, 0.2);
+      border-top-color: var(--primary);
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 10px;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .score-circle {
-      width: 80px; height: 80px;
+    
+    .spinner-inner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(6, 182, 212, 0.2);
+      border-bottom-color: var(--secondary);
       border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: bold; font-size: 24px;
-      margin: 0 auto 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      animation: spin 1.5s linear infinite reverse;
     }
-    .score-high { background: #dcfce7; color: #166534; } 
-    .score-medium { background: #fef3c7; color: #92400e; } /* Amber for warnings */
-    .score-low { background: #fee2e2; color: #991b1b; }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .loading-text {
+      color: var(--gray-400);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .loading-subtext {
+      color: var(--gray-500);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    
+    /* Result */
+    #result {
+      display: none;
+      text-align: center;
+      padding: 24px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      animation: slideUp 0.4s ease;
+    }
+    
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .score-ring {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      position: relative;
+      background: conic-gradient(var(--score-color, var(--primary)) calc(var(--score, 0) * 3.6deg), rgba(255,255,255,0.1) 0deg);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    
+    .score-ring::before {
+      content: '';
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: var(--gray-900);
+      border-radius: 50%;
+    }
+    
+    .score-value {
+      position: relative;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--white);
+    }
+    
+    .score-value small {
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.7;
+    }
+    
+    .score-high { --score-color: var(--success); }
+    .score-medium { --score-color: var(--warning); }
+    .score-low { --score-color: var(--danger); }
+    
+    #statusText {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+    
+    .verdict-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+    
+    .verdict-original { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .verdict-suspicious { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .verdict-plagiarized { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
     
     #detailsText {
-        font-size: 13px;
-        color: #334155; /* Darker for readability */
-        line-height: 1.5;
-        text-align: left;
-        margin-top: 8px;
-        background: white;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #f1f5f9;
-        max-height: 200px;
-        overflow-y: auto;
+      font-size: 12px;
+      color: var(--gray-400);
+      line-height: 1.6;
+      text-align: left;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    
+    #detailsText::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #detailsText::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    #detailsText::-webkit-scrollbar-thumb {
+      background: var(--gray-500);
+      border-radius: 3px;
+    }
+    
+    /* Preview image */
+    #previewImage {
+      max-width: 100%;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      display: none;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    
+    /* Info tip */
+    .info-tip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: 10px;
+      margin-top: 16px;
+    }
+    
+    .info-tip-icon {
+      font-size: 16px;
+    }
+    
+    .info-tip-text {
+      font-size: 11px;
+      color: var(--secondary);
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    
+    /* Keyboard shortcut badge */
+    .kbd {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      font-size: 10px;
+      font-family: monospace;
+      color: var(--gray-300);
+    }
+    
+    /* Footer */
+    .footer {
+      padding: 12px 24px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .footer-text {
+      font-size: 10px;
+      color: var(--gray-500);
+    }
+    
+    .footer-version {
+      font-size: 10px;
+      color: var(--gray-500);
+      background: rgba(255,255,255,0.05);
+      padding: 4px 8px;
+      border-radius: 4px;
     }
   </style>
 </head>
 <body>
+  <div class="header">
+    <div class="logo-row">
+      <div class="logo-icon">🔍</div>
+      <div class="logo-text">
+        <h1>PlagDetect</h1>
+        <p class="subtitle">AI-Powered Plagiarism Detection</p>
+      </div>
+    </div>
+  </div>
+  
   <div class="container">
-    <div class="logo">
-      <div class="logo-icon">P</div>
-      <h1>PlagDetect</h1>
-    </div>
-    <p class="subtitle">AI Plagiarism & Code Verification</p>
-    
     <div class="tabs">
-      <button class="tab active" data-mode="text">📝 Text</button>
-      <button class="tab" data-mode="code">💻 Code</button>
-      <button class="tab" data-mode="image">🖼️ Image</button>
+      <button class="tab active" data-mode="text">
+        <span class="tab-icon">📝</span>
+        Text
+      </button>
+      <button class="tab" data-mode="code">
+        <span class="tab-icon">💻</span>
+        Code
+      </button>
+      <button class="tab" data-mode="image">
+        <span class="tab-icon">🖼️</span>
+        Image
+      </button>
     </div>
     
-    <!-- Code Mode UI -->
-    <div id="codeSection" style="display: none;">
-        <p style="font-size: 13px; color: #4b5563; margin-bottom: 8px;">Verify logic & syntax:</p>
-        <select id="compilerSelect" class="compiler-select">
+    <!-- Text Section -->
+    <div id="textSection" class="section active">
+      <div class="quick-actions">
+        <button class="quick-btn" id="quickCheck">
+          <span class="quick-btn-icon">⚡</span>
+          <span class="quick-btn-label">Quick Check</span>
+        </button>
+        <button class="quick-btn" id="aiCheck">
+          <span class="quick-btn-icon">🤖</span>
+          <span class="quick-btn-label">AI Detection</span>
+        </button>
+      </div>
+      
+      <button id="checkSelection" class="btn btn-primary">
+        <span>🔍</span>
+        Check Selected Text
+      </button>
+      <button id="checkPage" class="btn btn-secondary">
+        <span>📄</span>
+        Analyze Full Page
+      </button>
+      
+      <div class="info-tip">
+        <span class="info-tip-icon">💡</span>
+        <span class="info-tip-text">
+          Tip: Right-click selected text for quick access, or use <span class="kbd">Ctrl+Shift+P</span>
+        </span>
+      </div>
+    </div>
+    
+    <!-- Code Section -->
+    <div id="codeSection" class="section">
+      <div class="glass-card">
+        <p style="font-size: 12px; color: var(--gray-400); margin-bottom: 10px; font-weight: 500;">
+          Select language for better analysis:
+        </p>
+        <div class="select-wrapper">
+          <select id="compilerSelect">
             <option value="auto">✨ Auto-detect Language</option>
             <option value="javascript">JavaScript / Node.js</option>
             <option value="python">Python 3</option>
             <option value="java">Java</option>
             <option value="cpp">C++ (GCC)</option>
             <option value="c">C (GCC)</option>
-        </select>
-        <button id="verifyCodeBtn" class="btn">🔍 Check Code Plagiarism</button>
-        <p style="font-size: 11px; color: #64748b; margin-top: 8px; text-align: center;">ℹ️ Select code on page, then check originality %</p>
-    </div>
-
-    <!-- Image Mode UI -->
-    <div id="imageSection" style="display: none;">
-        <div class="drop-zone" id="dropZone">
-            <span class="drop-icon">📁</span>
-            <span class="drop-text">Drag & Drop Image or Click</span>
-            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <option value="typescript">TypeScript</option>
+            <option value="go">Go</option>
+            <option value="rust">Rust</option>
+          </select>
         </div>
-        <img id="previewImage" style="max-width: 100%; border-radius: 8px; margin-bottom: 12px; display: none;">
-    </div>
-
-    <!-- Default Text UI -->
-    <div id="textSection">
-        <button id="checkSelection" class="btn">🔍 Check Selected Text</button>
-        <button id="checkPage" class="btn btn-secondary">📄 Analyze Full Page</button>
+      </div>
+      
+      <button id="verifyCodeBtn" class="btn btn-success">
+        <span>🔍</span>
+        Check Code Plagiarism
+      </button>
+      
+      <div class="info-tip">
+        <span class="info-tip-icon">📋</span>
+        <span class="info-tip-text">
+          Select code on any webpage (GitHub, StackOverflow, etc.) then click to analyze
+        </span>
+      </div>
     </div>
     
-    <!-- Result Parsing -->
-    <div id="loading" class="loading">
-      <div class="spinner"></div>
-      <p style="color: #6b7280; font-size: 13px;">Analyzing on server...</p>
+    <!-- Image Section -->
+    <div id="imageSection" class="section">
+      <div class="drop-zone" id="dropZone">
+        <span class="drop-icon">🖼️</span>
+        <span class="drop-text">Drag & Drop Image</span>
+        <span class="drop-subtext">or click to browse</span>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+      </div>
+      <img id="previewImage" alt="Preview">
+      
+      <div class="info-tip">
+        <span class="info-tip-icon">🔬</span>
+        <span class="info-tip-text">
+          Detects AI-generated images from DALL-E, Midjourney, Stable Diffusion & more
+        </span>
+      </div>
     </div>
-
+    
+    <!-- Loading -->
+    <div id="loading">
+      <div class="spinner-container">
+        <div class="spinner"></div>
+        <div class="spinner-inner"></div>
+      </div>
+      <p class="loading-text">Analyzing content...</p>
+      <p class="loading-subtext">This may take a few seconds</p>
+    </div>
+    
+    <!-- Result -->
     <div id="result">
-        <div class="score-circle" id="scoreValue">--</div>
-        <div id="statusText" style="font-weight: 600; margin-bottom: 8px;"></div>
-        <div id="detailsText"></div>
+      <div class="score-ring" id="scoreRing">
+        <span class="score-value" id="scoreValue">--<small>%</small></span>
+      </div>
+      <div id="statusText">Checking...</div>
+      <div class="verdict-badge" id="verdictBadge">ANALYZING</div>
+      <div id="detailsText"></div>
     </div>
+  </div>
+  
+  <div class="footer">
+    <span class="footer-text">© 2026 PlagDetect</span>
+    <span class="footer-version">v1.1.0</span>
   </div>
 
   <script src="popup.js"></script>

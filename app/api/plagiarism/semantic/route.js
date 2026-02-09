@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { rateLimit } from '@/lib/rateLimiter';
-import { chunkText, extractKeywords, cosineSimilarity, checkPlagiarism } from '@/lib/plagiarismUtils';
+import { chunkText, extractKeywords, cosineSimilarity, checkPlagiarism, normalizeText } from '@/lib/plagiarismUtils';
 
 // Initialize Gemini AI
 let genAI;
@@ -19,8 +19,63 @@ if (process.env.GEMINI_API_KEY) {
 
 // Helper function to get embeddings from Gemini
 async function getGeminiEmbedding(text) {
-    const result = await embeddingModel.embedContent(text);
-    return result.embedding.values;
+    if (!embeddingModel) return null;
+    try {
+        const result = await embeddingModel.embedContent(text);
+        return result.embedding.values;
+    } catch (err) {
+        console.error('Embedding error:', err.message);
+        return null;
+    }
+}
+
+// Calculate text similarity using multiple methods (ENHANCED)
+function calculateTextSimilarity(inputText, pageText) {
+    const inputNorm = normalizeText(inputText).toLowerCase();
+    const pageNorm = normalizeText(pageText).toLowerCase();
+
+    // Method 1: Word overlap (Jaccard similarity)
+    const inputWords = new Set(inputNorm.split(' ').filter(w => w.length > 3));
+    const pageWords = new Set(pageNorm.split(' ').filter(w => w.length > 3));
+
+    let overlap = 0;
+    for (const word of inputWords) {
+        if (pageWords.has(word)) overlap++;
+    }
+
+    const jaccardSimilarity = inputWords.size > 0 ? (overlap / inputWords.size) * 100 : 0;
+
+    // Method 2: N-gram matching (3-grams)
+    const inputTrigrams = new Set();
+    const inputWordsArr = inputNorm.split(' ').filter(w => w.length > 2);
+    for (let i = 0; i <= inputWordsArr.length - 3; i++) {
+        inputTrigrams.add(inputWordsArr.slice(i, i + 3).join(' '));
+    }
+
+    let trigramMatches = 0;
+    const pageWordsArr = pageNorm.split(' ').filter(w => w.length > 2);
+    for (let i = 0; i <= pageWordsArr.length - 3; i++) {
+        const trigram = pageWordsArr.slice(i, i + 3).join(' ');
+        if (inputTrigrams.has(trigram)) trigramMatches++;
+    }
+
+    const trigramSimilarity = inputTrigrams.size > 0 ? (trigramMatches / inputTrigrams.size) * 100 : 0;
+
+    // Method 3: Exact phrase matching
+    let phraseMatchScore = 0;
+    const phrases = inputText.match(/[^.!?]+[.!?]+/g) || [];
+    for (const phrase of phrases.slice(0, 5)) {
+        const cleanPhrase = phrase.trim().toLowerCase();
+        if (cleanPhrase.length > 30 && pageNorm.includes(normalizeText(cleanPhrase))) {
+            phraseMatchScore += 40;
+        }
+    }
+    phraseMatchScore = Math.min(phraseMatchScore, 100);
+
+    // Combine methods - use the highest score
+    const maxSimilarity = Math.max(jaccardSimilarity, trigramSimilarity * 1.5, phraseMatchScore);
+
+    return Math.round(maxSimilarity);
 }
 
 export async function POST(req) {
@@ -40,8 +95,7 @@ export async function POST(req) {
         }
 
         const body = await req.json();
-        // Lowered default threshold from 0.5 to 0.25 for better match detection
-        let { text, threshold = 0.25, filename, documentId } = body;
+        let { text, threshold = 0.15, filename, documentId } = body;
 
         // If documentId provided, fetch text from DB
         let document;
@@ -77,11 +131,14 @@ export async function POST(req) {
         const chunks = chunkText(text);
         const matches = [];
 
+        console.log(`\n========== SEMANTIC ANALYSIS START ==========`);
+        console.log(`User: ${session.user.email}, Text: ${text.length} chars, Chunks: ${chunks.length}`);
+
         // ----------------------------------------------------
         // FALLBACK MODE IF NO API KEYS - Still use pattern analysis
         // ----------------------------------------------------
         if (!genAI || !process.env.SERPER_API_KEY) {
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 500));
 
             // Run pattern analysis even in mock mode
             const patternAnalysis = await checkPlagiarism(text);
@@ -130,64 +187,111 @@ export async function POST(req) {
 
         for (const chunk of chunksToProcess) {
             try {
-                // A. Get Gemini Embedding for input chunk
+                // A. Get Gemini Embedding for input chunk (for semantic comparison)
                 const inputEmbedding = await getGeminiEmbedding(chunk);
 
-                // B. Web Search using Serper
-                const keywords = extractKeywords(chunk).join(' ');
+                // B. Web Search using Serper with enhanced keywords
+                const keywords = extractKeywords(chunk, 12).join(' ');
                 let searchResults = [];
 
+                console.log(`[SERPER] Searching: "${keywords.substring(0, 80)}..."`);
+
                 if (process.env.SERPER_API_KEY) {
-                    const searchRes = await fetch('https://google.serper.dev/search', {
-                        method: 'POST',
-                        headers: {
-                            'X-API-KEY': process.env.SERPER_API_KEY,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ q: keywords, num: 5 })
-                    });
-                    const searchData = await searchRes.json();
-                    searchResults = searchData.organic || [];
+                    try {
+                        const searchRes = await fetch('https://google.serper.dev/search', {
+                            method: 'POST',
+                            headers: {
+                                'X-API-KEY': process.env.SERPER_API_KEY,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                q: keywords,
+                                num: 10,  // Get more results
+                                gl: 'us',
+                                hl: 'en'
+                            })
+                        });
+
+                        if (searchRes.ok) {
+                            const searchData = await searchRes.json();
+                            searchResults = searchData.organic || [];
+                            console.log(`[SERPER] Found ${searchResults.length} results`);
+                        } else {
+                            console.warn(`[SERPER] API returned status ${searchRes.status}`);
+                        }
+                    } catch (searchError) {
+                        console.error(`[SERPER] Search failed: ${searchError.message}`);
+                    }
                 }
 
                 // C. Scrape & Compare each result
                 for (const result of searchResults) {
                     try {
-                        const pageRes = await axios.get(result.link, { timeout: 4000 });
-                        const $ = cheerio.load(pageRes.data);
-                        const pageText = $('p, article').text().substring(0, 2000);
+                        // First check snippet similarity (fast)
+                        const snippetSim = result.snippet ? calculateTextSimilarity(chunk, result.snippet) : 0;
 
-                        if (pageText.length < 50) continue;
+                        let pageSim = 0;
+                        let embeddingSim = 0;
+                        let pageText = result.snippet || '';
 
-                        // D. Get Gemini Embedding for scraped page
-                        const pageEmbedding = await getGeminiEmbedding(pageText.substring(0, 1000));
+                        // Scrape full page if snippet looks promising OR is too short
+                        if (snippetSim > 10 || (result.snippet?.length || 0) < 100) {
+                            try {
+                                const pageRes = await axios.get(result.link, {
+                                    timeout: 4000,
+                                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                                });
+                                const $ = cheerio.load(pageRes.data);
+                                $('script, style, nav, header, footer').remove();
+                                pageText = $('p, article, main').text().replace(/\s+/g, ' ').substring(0, 3000);
 
-                        // E. Calculate Cosine Similarity
-                        const similarity = cosineSimilarity(inputEmbedding, pageEmbedding);
+                                if (pageText.length > 100) {
+                                    // Text-based similarity
+                                    pageSim = calculateTextSimilarity(chunk, pageText);
 
-                        if (similarity * 100 > threshold * 100) {
+                                    // Embedding similarity (if available)
+                                    if (inputEmbedding) {
+                                        const pageEmbedding = await getGeminiEmbedding(pageText.substring(0, 1000));
+                                        if (pageEmbedding) {
+                                            embeddingSim = cosineSimilarity(inputEmbedding, pageEmbedding) * 100;
+                                        }
+                                    }
+                                }
+                            } catch (scrapeErr) {
+                                // Use snippet only
+                                pageSim = snippetSim;
+                            }
+                        }
+
+                        // Use highest similarity score
+                        const maxSimilarity = Math.max(snippetSim, pageSim, embeddingSim);
+
+                        console.log(`  -> ${result.title?.substring(0, 40)}: ${maxSimilarity.toFixed(1)}% (snip:${snippetSim}, page:${pageSim}, emb:${embeddingSim.toFixed(1)})`);
+
+                        if (maxSimilarity > threshold * 100) {
                             let matchType = 'SIMILAR';
-                            if (similarity > 0.9) matchType = 'DIRECT';
-                            else if (similarity > 0.75) matchType = 'PARAPHRASED';
+                            if (maxSimilarity > 85) matchType = 'DIRECT';
+                            else if (maxSimilarity > 60) matchType = 'PARAPHRASED';
+                            else if (maxSimilarity > 35) matchType = 'SIMILAR';
 
                             matches.push({
-                                originalText: chunk,
+                                originalText: chunk.substring(0, 300),
                                 matchedText: pageText.substring(0, 200) + '...',
                                 sourceUrl: result.link,
                                 sourceTitle: result.title,
-                                similarityScore: similarity * 100,
+                                similarityScore: Math.round(maxSimilarity),
                                 matchType,
                                 position: { startIndex: text.indexOf(chunk), endIndex: text.indexOf(chunk) + chunk.length }
                             });
                         }
 
                     } catch (err) {
-                        console.log(`Failed to process url ${result.link}: ${err.message}`);
+                        console.log(`[SCRAPE] Failed: ${result.link?.substring(0, 40)}: ${err.message}`);
                         continue;
                     }
                 }
             } catch (chunkError) {
-                console.error(`Error processing chunk: ${chunkError.message}`);
+                console.error(`[CHUNK] Error: ${chunkError.message}`);
                 continue;
             }
         }
@@ -199,7 +303,9 @@ export async function POST(req) {
         // Calculate web-based similarity score
         let webSimilarity = 0;
         if (matches.length > 0) {
-            webSimilarity = Math.max(...matches.map(m => m.similarityScore));
+            // Use average of top 3 matches, not just max
+            const sortedScores = matches.map(m => m.similarityScore).sort((a, b) => b - a);
+            webSimilarity = sortedScores.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(3, sortedScores.length);
         }
 
         // Always run pattern analysis for additional detection
@@ -214,35 +320,39 @@ export async function POST(req) {
                     matchedText: `Pattern detected: ${patternMatch.type}`,
                     sourceUrl: null,
                     sourceTitle: `Pattern Analysis: ${patternMatch.type}`,
-                    similarityScore: patternPenalty / patternAnalysis.matches.length,
+                    similarityScore: Math.round(patternPenalty / patternAnalysis.matches.length),
                     matchType: 'PATTERN',
                     position: null
                 });
             }
         }
 
-        // Combine scores: 
-        // - If web matches found: Use the higher penalty between web and pattern
-        // - If no web matches: Use pattern analysis directly
+        // Combine scores
         let finalPenalty;
-        if (webSimilarity > 0) {
-            // Web matches found - use higher of the two penalties
-            finalPenalty = Math.max(webSimilarity, patternPenalty);
+        if (webSimilarity > 30) {
+            // Strong web matches - weight them heavily
+            finalPenalty = Math.max(webSimilarity, patternPenalty * 0.5);
+        } else if (matches.length > 0 && webSimilarity > 15) {
+            // Some web matches
+            finalPenalty = (webSimilarity + patternPenalty) / 2;
         } else {
-            // No web matches - rely on pattern analysis
+            // No significant web matches - use pattern analysis
             finalPenalty = patternPenalty;
         }
 
         // Calculate overall score (higher penalty = lower originality)
         const overallScore = Math.max(0, Math.min(100, 100 - finalPenalty));
 
-        console.log(`Plagiarism Analysis Complete:
-            - Web similarity: ${webSimilarity}%
-            - Pattern penalty: ${patternPenalty}%
-            - Final penalty: ${finalPenalty}%
-            - Originality score: ${overallScore}%
-            - Total matches: ${matches.length}
-            - Verdict: ${patternAnalysis.verdict}`);
+        // Determine verdict
+        let verdict = 'ORIGINAL';
+        if (overallScore < 40) verdict = 'LIKELY_PLAGIARIZED';
+        else if (overallScore < 60) verdict = 'SUSPICIOUS';
+        else if (overallScore < 80) verdict = 'MOSTLY_ORIGINAL';
+
+        console.log(`========== SEMANTIC ANALYSIS COMPLETE ==========`);
+        console.log(`Web similarity: ${webSimilarity.toFixed(1)}%, Pattern penalty: ${patternPenalty}%`);
+        console.log(`Final: ${overallScore}% original, ${matches.length} matches, Verdict: ${verdict}`);
+        console.log(`Processing time: ${Date.now() - startTime}ms\n`);
 
         // Save to DB
         const report = await prisma.plagiarismReport.create({
@@ -253,12 +363,28 @@ export async function POST(req) {
             }
         });
 
+        // Save individual matches
+        for (const match of matches) {
+            await prisma.plagiarismMatch.create({
+                data: {
+                    reportId: report.id,
+                    originalText: match.originalText || '',
+                    matchedText: match.matchedText || '',
+                    sourceUrl: match.sourceUrl,
+                    sourceTitle: match.sourceTitle || 'Unknown',
+                    similarityScore: match.similarityScore,
+                    matchType: match.matchType,
+                    position: match.position ? JSON.stringify(match.position) : null
+                }
+            });
+        }
+
         return NextResponse.json({
             reportId: report.id,
             overallScore,
             totalMatches: matches.length,
             matches,
-            verdict: patternAnalysis.verdict,
+            verdict,
             processingTime: Date.now() - startTime
         });
 

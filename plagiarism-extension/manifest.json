@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "PlagDetect - AI Plagiarism Checker",
-    "version": "1.0.0",
-    "description": "Check text and code for plagiarism instantly. Powered by AI semantic analysis and AST-based code detection.",
+    "version": "1.1.0",
+    "description": "Check text and code for plagiarism instantly. Features offline pattern analysis, AI detection, and web source matching.",
     "icons": {
         "16": "icons/icon16.png",
         "48": "icons/icon48.png",
@@ -12,7 +12,8 @@
         "activeTab",
         "contextMenus",
         "storage",
-        "scripting"
+        "scripting",
+        "notifications"
     ],
     "host_permissions": [
         "https://cursors-2k26.vercel.app/*",
@@ -40,5 +41,21 @@
             ],
             "run_at": "document_end"
         }
-    ]
+    ],
+    "commands": {
+        "quick-check": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+P",
+                "mac": "Command+Shift+P"
+            },
+            "description": "Quick plagiarism check on selected text"
+        },
+        "_execute_action": {
+            "suggested_key": {
+                "default": "Alt+P",
+                "mac": "Alt+P"
+            },
+            "description": "Open PlagDetect popup"
+        }
+    }
 }
