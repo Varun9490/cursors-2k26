@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { rateLimit } from '@/lib/rateLimiter';
-import { chunkText, extractKeywords, cosineSimilarity } from '@/lib/plagiarismUtils';
+import { chunkText, extractKeywords, cosineSimilarity, checkPlagiarism } from '@/lib/plagiarismUtils';
 
 // Initialize Gemini AI
 let genAI;
@@ -40,7 +40,8 @@ export async function POST(req) {
         }
 
         const body = await req.json();
-        let { text, threshold = 0.5, filename, documentId } = body;
+        // Lowered default threshold from 0.5 to 0.25 for better match detection
+        let { text, threshold = 0.25, filename, documentId } = body;
 
         // If documentId provided, fetch text from DB
         let document;
@@ -77,33 +78,48 @@ export async function POST(req) {
         const matches = [];
 
         // ----------------------------------------------------
-        // MOCK MODE IF NO API KEY
+        // FALLBACK MODE IF NO API KEYS - Still use pattern analysis
         // ----------------------------------------------------
         if (!genAI || !process.env.SERPER_API_KEY) {
-            await new Promise(r => setTimeout(r, 2000));
+            await new Promise(r => setTimeout(r, 1500));
 
-            const matchedSources = [{
-                url: 'https://example.com/mock-result',
-                title: 'Simulated Semantic Match',
-                similarityScore: 85,
-                matchType: 'PARAPHRASED',
-                originalText: chunks[0] || text.substring(0, 200),
-                matchedText: "This is a simulated match. Configure GEMINI_API_KEY and SERPER_API_KEY for real analysis."
-            }];
+            // Run pattern analysis even in mock mode
+            const patternAnalysis = await checkPlagiarism(text);
+            const patternMatches = (patternAnalysis.matches || []).map(m => ({
+                url: null,
+                title: `Pattern Analysis: ${m.type}`,
+                similarityScore: (100 - patternAnalysis.originalityScore) / Math.max(patternAnalysis.matches.length, 1),
+                matchType: 'PATTERN',
+                originalText: m.reason,
+                matchedText: `Detected: ${m.type} - ${m.reason}`
+            }));
+
+            // Add a notice about API keys
+            if (patternMatches.length === 0) {
+                patternMatches.push({
+                    url: null,
+                    title: 'API Keys Not Configured',
+                    similarityScore: 0,
+                    matchType: 'INFO',
+                    originalText: 'Configure GEMINI_API_KEY and SERPER_API_KEY for web-based plagiarism detection.',
+                    matchedText: 'Pattern analysis found no issues with this text.'
+                });
+            }
 
             const report = await prisma.plagiarismReport.create({
                 data: {
                     documentId: document.id,
-                    originalityScore: 85.0,
-                    matchedSources: JSON.stringify(matchedSources),
+                    originalityScore: patternAnalysis.originalityScore,
+                    matchedSources: JSON.stringify(patternMatches),
                 }
             });
 
             return NextResponse.json({
                 reportId: report.id,
-                overallScore: 85.0,
-                totalMatches: 1,
-                matches: matchedSources,
+                overallScore: patternAnalysis.originalityScore,
+                totalMatches: patternMatches.length,
+                matches: patternMatches,
+                verdict: patternAnalysis.verdict,
                 processingTime: Date.now() - startTime
             });
         }
@@ -176,12 +192,57 @@ export async function POST(req) {
             }
         }
 
-        // Calculate Overall Score
-        let maxSimilarity = 0;
+        // ============================================================
+        // ENHANCED SCORING: Combine web matches with pattern analysis
+        // ============================================================
+
+        // Calculate web-based similarity score
+        let webSimilarity = 0;
         if (matches.length > 0) {
-            maxSimilarity = Math.max(...matches.map(m => m.similarityScore));
+            webSimilarity = Math.max(...matches.map(m => m.similarityScore));
         }
-        const overallScore = Math.max(0, 100 - maxSimilarity);
+
+        // Always run pattern analysis for additional detection
+        const patternAnalysis = await checkPlagiarism(text);
+        const patternPenalty = 100 - patternAnalysis.originalityScore;
+
+        // Add pattern-based matches to the matches array
+        if (patternAnalysis.matches && patternAnalysis.matches.length > 0) {
+            for (const patternMatch of patternAnalysis.matches) {
+                matches.push({
+                    originalText: patternMatch.reason,
+                    matchedText: `Pattern detected: ${patternMatch.type}`,
+                    sourceUrl: null,
+                    sourceTitle: `Pattern Analysis: ${patternMatch.type}`,
+                    similarityScore: patternPenalty / patternAnalysis.matches.length,
+                    matchType: 'PATTERN',
+                    position: null
+                });
+            }
+        }
+
+        // Combine scores: 
+        // - If web matches found: Use the higher penalty between web and pattern
+        // - If no web matches: Use pattern analysis directly
+        let finalPenalty;
+        if (webSimilarity > 0) {
+            // Web matches found - use higher of the two penalties
+            finalPenalty = Math.max(webSimilarity, patternPenalty);
+        } else {
+            // No web matches - rely on pattern analysis
+            finalPenalty = patternPenalty;
+        }
+
+        // Calculate overall score (higher penalty = lower originality)
+        const overallScore = Math.max(0, Math.min(100, 100 - finalPenalty));
+
+        console.log(`Plagiarism Analysis Complete:
+            - Web similarity: ${webSimilarity}%
+            - Pattern penalty: ${patternPenalty}%
+            - Final penalty: ${finalPenalty}%
+            - Originality score: ${overallScore}%
+            - Total matches: ${matches.length}
+            - Verdict: ${patternAnalysis.verdict}`);
 
         // Save to DB
         const report = await prisma.plagiarismReport.create({
@@ -197,6 +258,7 @@ export async function POST(req) {
             overallScore,
             totalMatches: matches.length,
             matches,
+            verdict: patternAnalysis.verdict,
             processingTime: Date.now() - startTime
         });
 
