@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { detectAIContent, detectAIGeneratedCode, analyzeSEO } from '@/lib/aiDetection';
+import { detectAIContent, detectAIWithGemini, detectAIGeneratedCode, analyzeSEO, checkAISourceURL } from '@/lib/aiDetection';
 import { checkPlagiarism, extractKeywords, cosineSimilarity, normalizeText } from '@/lib/plagiarismUtils';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
-// Initialize Gemini AI for embeddings
+// Initialize Gemini AI
 let genAI;
 let embeddingModel;
 if (process.env.GEMINI_API_KEY) {
@@ -75,10 +75,8 @@ async function scrapePageContent(url) {
         });
         const $ = cheerio.load(response.data);
 
-        // Remove scripts, styles, and nav elements
         $('script, style, nav, header, footer, aside').remove();
 
-        // Get main content
         const pageText = $('p, article, main, .content, .post').text()
             .replace(/\s+/g, ' ')
             .trim()
@@ -96,7 +94,6 @@ function calculateTextSimilarity(inputText, pageText) {
     const inputNorm = normalizeText(inputText).toLowerCase();
     const pageNorm = normalizeText(pageText).toLowerCase();
 
-    // Method 1: Word overlap (Jaccard similarity)
     const inputWords = new Set(inputNorm.split(' ').filter(w => w.length > 3));
     const pageWords = new Set(pageNorm.split(' ').filter(w => w.length > 3));
 
@@ -107,7 +104,6 @@ function calculateTextSimilarity(inputText, pageText) {
 
     const jaccardSimilarity = inputWords.size > 0 ? (overlap / inputWords.size) * 100 : 0;
 
-    // Method 2: N-gram matching (3-grams)
     const inputTrigrams = new Set();
     const inputWordsArr = inputNorm.split(' ').filter(w => w.length > 2);
     for (let i = 0; i <= inputWordsArr.length - 3; i++) {
@@ -123,18 +119,16 @@ function calculateTextSimilarity(inputText, pageText) {
 
     const trigramSimilarity = inputTrigrams.size > 0 ? (trigramMatches / inputTrigrams.size) * 100 : 0;
 
-    // Method 3: Exact phrase matching
     let phraseMatchScore = 0;
     const phrases = inputText.match(/[^.!?]+[.!?]+/g) || [];
     for (const phrase of phrases.slice(0, 5)) {
         const cleanPhrase = phrase.trim().toLowerCase();
         if (cleanPhrase.length > 30 && pageNorm.includes(normalizeText(cleanPhrase))) {
-            phraseMatchScore += 40; // High score for exact matches
+            phraseMatchScore += 40;
         }
     }
     phraseMatchScore = Math.min(phraseMatchScore, 100);
 
-    // Combine methods - use the highest score
     const maxSimilarity = Math.max(jaccardSimilarity, trigramSimilarity * 1.5, phraseMatchScore);
 
     return {
@@ -154,7 +148,6 @@ async function checkWebPlagiarism(text) {
         return { matches: [], maxSimilarity: 0 };
     }
 
-    // Extract keywords for search
     const keywords = extractKeywords(text, 12);
     const searchQuery = keywords.join(' ');
 
@@ -165,12 +158,10 @@ async function checkWebPlagiarism(text) {
         return { matches: [], maxSimilarity: 0 };
     }
 
-    // Search the web
     const searchResults = await searchWeb(searchQuery, 8);
 
     if (searchResults.length === 0) {
         console.log('[WEB] No search results, trying alternative query...');
-        // Try with first sentence
         const firstSentence = text.split(/[.!?]/)[0];
         if (firstSentence && firstSentence.length > 20) {
             const altResults = await searchWeb(firstSentence.substring(0, 100), 5);
@@ -185,7 +176,6 @@ async function checkWebPlagiarism(text) {
         return { matches: [], maxSimilarity: 0 };
     }
 
-    // Check each search result
     let inputEmbedding = null;
     if (embeddingModel) {
         inputEmbedding = await getGeminiEmbedding(text.substring(0, 1000));
@@ -195,17 +185,14 @@ async function checkWebPlagiarism(text) {
         try {
             console.log(`[WEB] Checking: ${result.title?.substring(0, 50)}...`);
 
-            // First, check snippet similarity (faster)
             const snippetSim = calculateTextSimilarity(text, result.snippet || '');
 
-            // If snippet looks promising, scrape the full page
             let pageSim = { combined: 0 };
             if (snippetSim.combined > 10 || result.snippet?.length < 100) {
                 const pageContent = await scrapePageContent(result.link);
                 if (pageContent && pageContent.length > 100) {
                     pageSim = calculateTextSimilarity(text, pageContent);
 
-                    // Also try embedding similarity if available
                     if (inputEmbedding) {
                         const pageEmbedding = await getGeminiEmbedding(pageContent.substring(0, 1000));
                         if (pageEmbedding) {
@@ -220,7 +207,7 @@ async function checkWebPlagiarism(text) {
             const maxSim = Math.max(snippetSim.combined, pageSim.combined);
             console.log(`  -> Similarity: ${maxSim}% (snippet: ${snippetSim.combined}%, page: ${pageSim.combined}%)`);
 
-            if (maxSim > 15) { // Lower threshold to catch more matches
+            if (maxSim > 15) {
                 let matchType = 'SIMILAR';
                 if (maxSim > 80) matchType = 'DIRECT_COPY';
                 else if (maxSim > 50) matchType = 'PARAPHRASED';
@@ -244,7 +231,6 @@ async function checkWebPlagiarism(text) {
         }
     }
 
-    // Sort by similarity
     webMatches.sort((a, b) => b.similarity - a.similarity);
 
     const maxSimilarity = webMatches.length > 0 ? webMatches[0].similarity : 0;
@@ -265,6 +251,7 @@ export async function POST(req) {
 
         console.log(`\n========== PAGE ANALYSIS START ==========`);
         console.log(`Text length: ${textContent?.length || 0} chars`);
+        console.log(`URL: ${url || 'Not provided'}`);
 
         const results = {
             timestamp: new Date().toISOString(),
@@ -273,55 +260,120 @@ export async function POST(req) {
             plagiarismAnalysis: null,
             codeAnalysis: null,
             seoAnalysis: null,
+            geminiAnalysis: null,
+            urlAnalysis: null,
             overallVerdict: 'ORIGINAL',
             overallScore: 100,
             recommendations: [],
-            processingTime: 0
+            processingTime: 0,
+            detailedAIFactors: []
         };
 
-        // 1. Analyze text content for AI patterns
-        if (textContent && textContent.length > 50) {
-            results.contentAnalysis = detectAIContent(textContent);
+        // =====================================
+        // 0. CHECK URL FOR AI SOURCE
+        // =====================================
+        if (url) {
+            const urlCheck = checkAISourceURL(url);
+            results.urlAnalysis = urlCheck;
 
-            if (results.contentAnalysis.isLikelyAI) {
-                results.overallScore -= results.contentAnalysis.aiScore * 0.4;
-                results.recommendations.push('🤖 Content shows AI-generated patterns. Consider rewriting for authenticity.');
+            if (urlCheck.isAISource) {
+                console.log(`[URL] AI source detected: ${urlCheck.source}`);
+                results.overallScore -= urlCheck.penalty;
+                results.recommendations.push(`🔴 Content from ${urlCheck.source} — this is an AI platform. Content is AI-generated.`);
+                results.detailedAIFactors.push(`URL is from AI platform: ${urlCheck.source}`);
             }
         }
 
+        // =====================================
+        // 1. Analyze text content for AI patterns (local + Gemini)
+        // =====================================
+        if (textContent && textContent.length > 30) {
+            // A. Local pattern-based detection (enhanced)
+            results.contentAnalysis = detectAIContent(textContent, url);
+            console.log(`[AI LOCAL] Score: ${results.contentAnalysis.aiScore}%, isLikelyAI: ${results.contentAnalysis.isLikelyAI}`);
+            console.log(`[AI LOCAL] Factors: ${results.contentAnalysis.detailedFactors?.length || 0}`);
+
+            // B. Gemini AI detection (more accurate)
+            if (genAI && textContent.length > 50) {
+                try {
+                    console.log(`[GEMINI] Starting AI detection...`);
+                    const geminiResult = await detectAIWithGemini(textContent, genAI);
+
+                    if (geminiResult) {
+                        results.geminiAnalysis = geminiResult;
+                        console.log(`[GEMINI] AI Probability: ${geminiResult.aiProbability}%, Verdict: ${geminiResult.verdict}`);
+
+                        // Combine local + Gemini scores (Gemini weighted higher)
+                        const localScore = results.contentAnalysis.aiScore;
+                        const geminiScore = geminiResult.aiProbability;
+
+                        // Use the higher of the two, with Gemini having more weight
+                        const combinedAIScore = Math.round(
+                            Math.max(
+                                (localScore * 0.4 + geminiScore * 0.6),
+                                localScore,
+                                geminiScore * 0.9
+                            )
+                        );
+
+                        results.contentAnalysis.aiScore = Math.min(100, combinedAIScore);
+                        results.contentAnalysis.geminiAIScore = geminiScore;
+                        results.contentAnalysis.localAIScore = localScore;
+                        results.contentAnalysis.isLikelyAI = combinedAIScore > 35;
+
+                        // Add Gemini factors
+                        if (geminiResult.keyFactors) {
+                            results.detailedAIFactors.push(...geminiResult.keyFactors);
+                        }
+                        if (geminiResult.reasoning) {
+                            results.detailedAIFactors.push(`Gemini: ${geminiResult.reasoning}`);
+                        }
+                    }
+                } catch (geminiErr) {
+                    console.error('[GEMINI] AI detection failed:', geminiErr.message);
+                }
+            }
+
+            // Apply AI score to overall
+            if (results.contentAnalysis.isLikelyAI) {
+                const aiPenalty = results.contentAnalysis.aiScore * 0.6;
+                results.overallScore -= aiPenalty;
+                results.recommendations.push(`🤖 AI-generated content detected (${results.contentAnalysis.aiScore}% probability). Content appears to be AI-written.`);
+            }
+
+            // Add detailed factors
+            if (results.contentAnalysis.detailedFactors) {
+                results.detailedAIFactors.push(...results.contentAnalysis.detailedFactors);
+            }
+        }
+
+        // =====================================
         // 2. Check for plagiarism - ENHANCED with web search
+        // =====================================
         if (textContent && textContent.length > 100) {
             try {
                 console.log(`[PLAG] Starting plagiarism analysis...`);
 
-                // A. Pattern-based analysis (local)
                 const patternResult = await checkPlagiarism(textContent.substring(0, 3000));
                 console.log(`[PLAG] Pattern analysis: ${patternResult?.originalityScore}% original, ${patternResult?.matches?.length || 0} patterns`);
 
-                // B. Web-based plagiarism check (uses Serper API)
                 const webResult = await checkWebPlagiarism(textContent.substring(0, 2000));
                 console.log(`[PLAG] Web analysis: ${webResult.matches.length} sources, max ${webResult.maxSimilarity}% similar`);
 
-                // Combine results
                 const patternPenalty = patternResult ? (100 - patternResult.originalityScore) : 0;
                 const webPenalty = webResult.maxSimilarity;
 
-                // Use weighted combination
                 let combinedPenalty;
                 if (webResult.matches.length > 0) {
-                    // If web matches found, weight them heavily
                     combinedPenalty = Math.max(webPenalty, patternPenalty * 0.5);
                 } else {
-                    // Only pattern analysis
                     combinedPenalty = patternPenalty;
                 }
 
                 const combinedScore = Math.max(0, 100 - combinedPenalty);
 
-                // Merge matches from both sources
                 const allMatches = [];
 
-                // Add web matches
                 if (webResult.matches.length > 0) {
                     webResult.matches.forEach(m => {
                         allMatches.push({
@@ -335,7 +387,6 @@ export async function POST(req) {
                     });
                 }
 
-                // Add pattern matches
                 if (patternResult?.matches?.length > 0) {
                     patternResult.matches.forEach(m => {
                         allMatches.push({
@@ -360,7 +411,6 @@ export async function POST(req) {
                         combinedScore >= 50 ? 'SUSPICIOUS' : 'LIKELY_PLAGIARIZED'
                 };
 
-                // Reduce overall score based on plagiarism
                 if (combinedScore < 70) {
                     results.overallScore -= (100 - combinedScore) * 0.5;
                     results.recommendations.push(
@@ -382,7 +432,9 @@ export async function POST(req) {
             }
         }
 
+        // =====================================
         // 3. Analyze source code if provided
+        // =====================================
         if (sourceCode && sourceCode.length > 50) {
             results.codeAnalysis = detectAIGeneratedCode(sourceCode);
 
@@ -396,7 +448,9 @@ export async function POST(req) {
             }
         }
 
+        // =====================================
         // 4. Analyze SEO (requires HTML)
+        // =====================================
         if (html && textContent) {
             results.seoAnalysis = analyzeSEO(html, textContent);
 
@@ -408,16 +462,31 @@ export async function POST(req) {
                 results.recommendations.push('📉 AI content detected - this may negatively impact search rankings.');
             }
 
-            // Add top SEO issues
             results.seoAnalysis.issues.slice(0, 3).forEach(issue => {
                 results.recommendations.push(`📊 SEO: ${issue}`);
             });
         }
 
-        // Determine overall verdict
+        // =====================================
+        // 5. Determine overall verdict
+        // =====================================
         results.overallScore = Math.max(0, Math.round(results.overallScore));
 
-        if (results.overallScore >= 80) {
+        // AI content from AI source URLs is always flagged
+        const urlCheck = url ? checkAISourceURL(url) : { isAISource: false };
+        const aiScore = results.contentAnalysis?.aiScore || 0;
+
+        if (urlCheck.isAISource) {
+            // Content from ChatGPT, Claude, etc. is ALWAYS AI
+            results.overallVerdict = 'AI_GENERATED';
+            results.overallScore = Math.min(results.overallScore, 15);
+        } else if (aiScore >= 70) {
+            results.overallVerdict = 'AI_GENERATED';
+            results.overallScore = Math.min(results.overallScore, 30);
+        } else if (aiScore >= 45) {
+            results.overallVerdict = 'MIXED_CONTENT';
+            results.overallScore = Math.min(results.overallScore, 55);
+        } else if (results.overallScore >= 80) {
             results.overallVerdict = 'ORIGINAL';
         } else if (results.overallScore >= 50) {
             results.overallVerdict = 'MIXED_CONTENT';
@@ -430,7 +499,7 @@ export async function POST(req) {
         results.processingTime = Date.now() - startTime;
 
         console.log(`========== PAGE ANALYSIS COMPLETE ==========`);
-        console.log(`Overall: ${results.overallScore}%, Verdict: ${results.overallVerdict}, Time: ${results.processingTime}ms\n`);
+        console.log(`Overall: ${results.overallScore}%, Verdict: ${results.overallVerdict}, AI Score: ${aiScore}%, Time: ${results.processingTime}ms\n`);
 
         return NextResponse.json(results);
 
