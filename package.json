@@ -28,6 +28,7 @@
     "@tiptap/extension-placeholder": "^3.14.0",
     "@tiptap/react": "^3.14.0",
     "@tiptap/starter-kit": "^3.14.0",
+    "ai-text-detector": "^1.0.8",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.1.2",
