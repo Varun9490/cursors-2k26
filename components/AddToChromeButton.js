@@ -35,8 +35,8 @@ export default function AddToChromeButton() {
         try {
             // Download the extension ZIP file from public folder
             const link = document.createElement('a');
-            link.href = '/plagiarism-extension-v1.2.0.zip';
-            link.download = 'plagdetect-extension-v1.2.0.zip';
+            link.href = '/plagiarism-extension-v2.0.0.zip';
+            link.download = 'plagdetect-extension-v2.0.0.zip';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
