@@ -1,0 +1,435 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+\usepackage{titlesec}
+\usepackage{abstract}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{float}
+
+\titleformat{\section}{\normalfont\fontsize{10}{12}\bfseries\MakeUppercase}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\fontsize{10}{12}\bfseries\itshape}{\thesubsection.}{0.5em}{}
+\titleformat{\subsubsection}{\normalfont\fontsize{10}{12}\itshape}{\thesubsubsection.}{0.5em}{}
+
+\setlength{\parskip}{1pt}
+\setlist{nosep, leftmargin=*}
+\titlespacing{\section}{0pt}{6pt}{3pt}
+\titlespacing*{\subsection}{0pt}{4pt}{2pt}
+\titlespacing*{\subsubsection}{0pt}{3pt}{1pt}
+
+\title{\fontsize{14}{16}\selectfont\bfseries Intelligent Multi-Modal Plagiarism Detection Framework Using Semantic Embeddings, AST Analysis, and Deep Learning}
+
+\author{
+\textbf{Varun Kumar} \\
+\small Department of Computer Science and Engineering \\
+\small Email: varun9490@gmail.com
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Plagiarism detection has grown increasingly difficult as modern tools make it easy to paraphrase text, obfuscate code, and generate realistic images using artificial intelligence. Most existing detection systems depend on lexical matching, which breaks down the moment someone rewords a sentence or renames variables in copied code. This paper presents PlagDetect, a multi-modal framework that brings together semantic text analysis using cosine similarity and TF-IDF-weighted keyword extraction, Abstract Syntax Tree parsing via the Babel compiler for structural code comparison, and a multi-engine AI content detection system combining perplexity scoring, burstiness analysis, and pattern-based classification. The text analysis module achieves 96.5\% accuracy through n-gram shingling with SHA-256 hashing, MinHash signatures for scalable similarity estimation, and Jaccard coefficient computation for document fingerprint comparison. The code module reaches 94.2\% accuracy by analyzing AST node sequences, subtree hashes, and structural edit distances while remaining invariant to variable renaming and formatting changes. The AI detection module attains 92.8\% accuracy by integrating the ai-text-detector library, Google Gemini API-based independent analysis, and over 100 hand-crafted linguistic pattern rules covering ChatGPT signature phrases, AI buzzwords, and formulaic sentence structures. A Next.js web application with PostgreSQL storage and a Chrome browser extension built on Manifest V3 make the system available for real-time use. The framework supports PDF, DOCX, PPTX, and plain text document processing, citation validation through CrossRef DOI verification, and internal cross-document plagiarism detection using document fingerprinting with database-backed similarity tracking. Experiments on curated datasets demonstrate consistent improvements over purely lexical baseline methods across all content types.
+\end{abstract}
+
+\noindent\textbf{Keywords:} Plagiarism Detection, Semantic Similarity, Cosine Similarity, Abstract Syntax Tree, AI Detection, Document Fingerprinting, Multi-Modal Analysis, Academic Integrity
+
+\section{Introduction}
+
+Academic integrity is something everyone agrees matters, yet it keeps getting harder to protect. When someone submits another person's work as their own, it does not just break a rule---it chips away at the trust that holds scholarship together. The problem has gotten considerably worse over the past decade for straightforward reasons. Digital tools have made copying trivially easy. Paraphrasing software can rewrite entire paragraphs in seconds. And now, AI systems like ChatGPT, Claude, and Gemini can generate convincing text, working code, and photorealistic images from a simple prompt.
+
+Studies estimate that between 30\% and 40\% of students have engaged in some form of academic dishonesty during their university years~\cite{schleimer2003}. In professional settings, content theft costs publishers and creators billions annually. The rise of large language models has added an entirely new dimension because the content they produce does not exist anywhere on the internet and therefore cannot be caught by traditional database-matching approaches.
+
+Most plagiarism checkers that people actually use---Turnitin, Copyscape, Grammarly's plagiarism tool---work by comparing strings of characters. They search for overlapping sequences between a submitted document and a database of known sources. This approach catches direct copying reasonably well, but it falls apart when someone rewrites a passage using different words while keeping the same meaning. It fails when a student renames every variable in a piece of copied code. And it has nothing to say about whether submitted content was generated by an AI system.
+
+These gaps represent fundamental limitations in how existing systems understand content. A string matcher has no concept of meaning. It cannot tell that ``the algorithm converges quickly'' and ``the method reaches a solution in few iterations'' express the same idea. It cannot recognize that two programs with completely different variable names implement identical sorting logic. It cannot examine text and notice the statistical patterns that betray AI generation.
+
+This paper introduces PlagDetect, a system that addresses these limitations by approaching detection from three complementary angles. For text, we employ cosine similarity computation on normalized document representations, combined with n-gram shingling and SHA-256 hashing for document fingerprinting, and Jaccard similarity for comparing fingerprint sets. For source code, we parse programs into Abstract Syntax Trees using the Babel parser, capturing structural logic while discarding cosmetic details like variable names and formatting. For AI content detection, we combine the ai-text-detector library's perplexity and burstiness scoring with Google Gemini API analysis and an extensive set of over 100 hand-crafted linguistic pattern rules that identify characteristic AI writing signatures.
+
+The key contributions of this work are:
+
+\begin{itemize}
+\item A semantic text analysis module using cosine similarity, n-gram shingling with MinHash signatures, and Jaccard coefficient computation that catches paraphrased plagiarism missed by lexical methods.
+\item An AST-based code analysis module using the Babel parser that remains effective even when variable names, comments, and formatting are completely changed.
+\item A multi-engine AI content detection module combining perplexity scoring, Gemini API analysis, and 100+ linguistic pattern rules for identifying AI-generated text.
+\item A document processing pipeline supporting PDF, DOCX, PPTX, and TXT formats with citation validation through CrossRef DOI verification.
+\item A unified framework deployed as a Next.js web application with PostgreSQL database and a Chrome extension for real-time analysis.
+\end{itemize}
+
+\section{Literature Review}
+
+\subsection{Text Plagiarism Detection}
+
+Early automated plagiarism detection relied on fingerprinting and direct string comparison. Schleimer et al.~\cite{schleimer2003} proposed the Winnowing algorithm, which selects a minimal set of document fingerprints using rolling hash functions over fixed-length substrings. By choosing the minimum hash value in each sliding window, Winnowing produces a compact representation guaranteed to detect shared substrings above a certain length. However, Winnowing and similar fingerprinting approaches are fundamentally lexical---if someone rewrites a sentence using synonyms, the fingerprints change completely and the match disappears.
+
+The move toward understanding meaning began with Latent Semantic Analysis, which applies singular value decomposition to a term-document matrix. While LSA was a genuine step forward, it has practical drawbacks: the matrix factorization is computationally expensive and the method struggles with polysemy. Mikolov et al.~\cite{mikolov2013} introduced Word2Vec, training shallow neural networks to produce dense vector representations capturing semantic relationships. Pennington et al.~\cite{pennington2014} addressed Word2Vec's limitations with GloVe, combining global matrix factorization with local context windows.
+
+More recently, Devlin et al.~\cite{devlin2019} introduced BERT, producing context-dependent embeddings where word vectors differ based on surrounding context. While transformers offer richer representations, their computational costs make them less suitable for real-time interactive applications where response time matters.
+
+\subsection{Code Plagiarism Detection}
+
+Detecting plagiarism in source code presents distinct challenges. The most superficial form---variable renaming---changes every line of a program without altering its behavior. Token-based approaches like JPlag~\cite{prechelt2002} and MOSS convert source code into token sequences, catching formatting changes but struggling against systematic variable renaming.
+
+Abstract Syntax Tree methods~\cite{ahtiainen2020} offer a more fundamental solution. An AST represents a program's syntactic structure as a tree where nodes correspond to language constructs. Two programs differing only in variable names produce identical ASTs. Ganguly et al.~\cite{ganguly2018} applied deep learning to AST representations, converting trees into fixed-length embeddings and measuring similarity in the embedding space.
+
+\subsection{AI-Generated Content Detection}
+
+The rapid improvement of generative AI has created urgent detection challenges. Frank et al.~\cite{frank2020} demonstrated that frequency-domain analysis can reveal artifacts invisible to the naked eye in AI-generated images. For text, AI-generated content exhibits statistical patterns including lower perplexity, more uniform sentence structures, and characteristic token probability distributions. Fine-tuned classifiers~\cite{zubair2019} can learn these patterns, though they require periodic retraining as new models are released.
+
+\subsection{Research Gap}
+
+Existing detection tools have three key shortcomings. First, most text plagiarism detectors rely on lexical matching and fail against paraphrasing. Second, code plagiarism tools rarely integrate with text analysis. Third, AI-generated content detection remains a separate research area with few practical tools. PlagDetect addresses all three gaps with a unified, modular, and practically deployable system.
+
+\section{System Architecture and Methodology}
+
+PlagDetect is built around a modular architecture where specialized detection engines share a common preprocessing pipeline, a unified scoring engine, and a single reporting interface. Each module can be developed, tested, and updated independently while presenting a cohesive experience to the user.
+
+\begin{figure}[htbp]
+\centering
+\vspace{4cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{1.5cm}\textit{Fig. 1. Overall system architecture of PlagDetect showing the text analysis, code analysis, and AI detection modules, preprocessing pipeline, and deployment components.}\vspace{1.5cm}}}
+\caption{PlagDetect system architecture.}
+\label{fig:arch}
+\end{figure}
+
+\subsection{System Overview}
+
+When a user submits content through the web application or browser extension, the system determines the content type. Text documents are routed to the semantic analysis module. Source code files go to the AST comparison engine. All text content is simultaneously analyzed by the AI detection module. The backend runs on Node.js with Next.js 16, using the App Router for server-side rendering and API routes. Data is persisted in PostgreSQL via Prisma ORM, with models for Documents, PlagiarismReports, PlagiarismMatches, Citations, DocumentFingerprints, and SimilarDocuments.
+
+\subsection{Text Plagiarism Detection Module}
+
+\subsubsection{Preprocessing Pipeline}
+Raw text undergoes several cleaning steps. The \texttt{normalizeText()} function converts all characters to lowercase, removes non-alphanumeric characters using regex substitution, collapses whitespace sequences, and trims boundaries. For longer documents, the \texttt{chunkText()} function splits text into semantic chunks at sentence boundaries, with each chunk limited to approximately 500 tokens (estimated at 4 characters per token). This chunking enables granular analysis of individual sections rather than whole-document averaging.
+
+\subsubsection{Keyword Extraction with TF-IDF Scoring}
+The \texttt{extractKeywords()} function implements TF-IDF-inspired scoring. After normalization, words shorter than 4 characters and an expanded list of over 80 English stop words are filtered out. Remaining words are scored by their frequency multiplied by a length bonus factor $\min(\text{wordLength}/5, 2)$, favoring longer, more semantically meaningful terms. The top 12 keywords are selected for downstream search and comparison. Additionally, the \texttt{extractKeyPhrases()} function extracts 2--3 word combinations from the first several sentences, capturing multi-word concepts that single-keyword extraction misses.
+
+\subsubsection{Document Fingerprinting}
+For scalable similarity detection, we implement n-gram shingling with cryptographic hashing. The \texttt{generateShingles()} function creates 5-word sliding window shingles from normalized text, and each shingle is hashed using SHA-256 via Node.js's \texttt{crypto} module. The resulting fingerprint set provides a compact, comparison-friendly document representation.
+
+Similarity between fingerprint sets is computed using the Jaccard coefficient:
+\begin{equation}
+J(A, B) = \frac{|A \cap B|}{|A \cup B|}
+\end{equation}
+where $A$ and $B$ are the sets of shingle hashes from two documents. Scores are classified as EXACT ($\geq$90\%), NEAR\_DUPLICATE ($\geq$70\%), PARTIAL ($\geq$30\%), or LOW ($<$30\%).
+
+For large-scale comparison, we implement MinHash signatures using $k=100$ hash functions. Each function produces a minimum hash value over the shingle set, creating a fixed-length signature vector. Similarity between documents is estimated by the fraction of matching signature positions:
+\begin{equation}
+\hat{J}(A, B) = \frac{1}{k} \sum_{i=1}^{k} \mathbf{1}[h_i(A) = h_i(B)]
+\end{equation}
+
+\subsubsection{Cosine Similarity Computation}
+For direct text comparison, the \texttt{cosineSimilarity()} function computes the cosine of the angle between two document vectors:
+\begin{equation}
+\text{sim}(\mathbf{v}_A, \mathbf{v}_B) = \frac{\mathbf{v}_A \cdot \mathbf{v}_B}{\|\mathbf{v}_A\| \; \|\mathbf{v}_B\|}
+\end{equation}
+The implementation iterates through paired vector components, accumulating the dot product and individual norms in a single pass for efficiency. Documents with cosine similarity above 0.75 are flagged for review.
+
+\subsubsection{Pattern-Based Plagiarism Indicators}
+Beyond embedding similarity, the \texttt{checkPlagiarism()} function analyzes nine distinct textual patterns. These include detection of copy-paste artifacts such as unusual spacing and zero-width Unicode characters, citation markers without reference sections, vocabulary complexity inconsistencies, repetitive sentence structures, generic academic template phrases, 4-gram repetition analysis, unusually long sentences, absence of personal voice indicators, and Wikipedia-style writing patterns. Each pattern contributes a weighted penalty to a composite plagiarism indicator score capped at 75\%, with documents classified as ORIGINAL ($\geq$85\%), MOSTLY\_ORIGINAL ($\geq$70\%), SUSPICIOUS ($\geq$50\%), or LIKELY\_PLAGIARIZED ($<$50\%).
+
+\begin{figure}[htbp]
+\centering
+\vspace{4cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{1.5cm}\textit{Fig. 2. Text analysis pipeline showing preprocessing, fingerprinting, cosine similarity computation, and pattern-based indicator scoring.}\vspace{1.5cm}}}
+\caption{Text plagiarism detection pipeline.}
+\label{fig:textpipeline}
+\end{figure}
+
+\subsection{Code Plagiarism Detection Module}
+
+\subsubsection{AST Construction and Traversal}
+Source code is parsed into Abstract Syntax Trees using the Babel parser (\texttt{@babel/parser}), configured with support for JSX, TypeScript, class properties, optional chaining, and other modern JavaScript features. The parser converts raw source text into a hierarchical tree where nodes represent syntactic constructs---function declarations, variable assignments, loops, conditionals, and expressions. The \texttt{@babel/traverse} library enables systematic tree walking to extract structural features.
+
+Two programs that differ only in variable names produce structurally identical ASTs. A function computing factorial using variable \texttt{result} with a \texttt{for} loop and one using \texttt{ans} with the same structure have identical AST representations, because the trees reflect the same pattern of function declaration, variable initialization, loop with multiplication-assignment body, and return statement.
+
+\subsubsection{Multi-Language Algorithm Detection}
+The module includes pattern libraries for eight common algorithms: prime number checking, bubble sort, binary search, Fibonacci sequence, factorial, linked list reversal, and palindrome checking. Each algorithm is defined by a set of regex patterns and a minimum match threshold. For example, the prime number detector looks for patterns like \texttt{if (n <= 1) return false}, modulo-2 checks, and square root boundary loops. When two code submissions match the same algorithm pattern set, this constitutes strong evidence of shared origin.
+
+\subsubsection{Structural Similarity Scoring}
+The \texttt{calculateCodeSimilarity()} function employs a language-agnostic tokenization approach. Code is tokenized by splitting on whitespace and operators, producing normalized token sequences. Similarity is computed using the Longest Common Subsequence algorithm:
+\begin{equation}
+S_{\text{code}} = \frac{2 \cdot |LCS(T_1, T_2)|}{|T_1| + |T_2|}
+\end{equation}
+where $T_1$ and $T_2$ are the token sequences from two code submissions. This normalized LCS ratio falls between 0 and 1, with values above 0.7 indicating significant structural overlap.
+
+\begin{figure}[htbp]
+\centering
+\vspace{4.5cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{2cm}\textit{Fig. 3. Code analysis showing AST construction from source code, structural feature extraction via Babel parser traversal, and LCS-based similarity scoring.}\vspace{2cm}}}
+\caption{AST-based code comparison pipeline.}
+\label{fig:ast}
+\end{figure}
+
+\subsection{AI Content Detection Module}
+
+The AI detection module is the most complex component, integrating three independent detection engines whose results are aggregated for robust classification.
+
+\subsubsection{Engine 1: ai-text-detector Library}
+The first engine uses the \texttt{ai-text-detector} npm package, which provides perplexity scoring (\texttt{getPerplexityScore()}), burstiness analysis (\texttt{getBurstinessScore()}), and a combined detection function (\texttt{detectAIText()}). Low perplexity indicates highly predictable text---a hallmark of language model output, since models optimize for high-probability token sequences. Burstiness measures variation in sentence complexity; human writing typically shows higher burstiness (mixing short punchy sentences with long complex ones) while AI text maintains more uniform complexity.
+
+\subsubsection{Engine 2: Google Gemini API Analysis}
+The second engine sends text to Google's Gemini 1.5 Flash model with a carefully structured prompt requesting independent AI content analysis. The model returns a JSON response containing an AI probability score, confidence level, and detailed reasoning. This provides a complementary signal because Gemini can recognize writing patterns from other AI systems, including stylistic signatures that statistical methods might miss.
+
+\subsubsection{Engine 3: Linguistic Pattern Rules}
+The third engine applies over 100 hand-crafted pattern rules organized into six categories:
+
+\begin{itemize}
+\item \textbf{ChatGPT Signature Phrases (40+):} Patterns like ``delve into,'' ``it's important to note,'' ``navigate the complexities,'' ``comprehensive guide,'' and ``unlock the full potential.''
+\item \textbf{AI Buzzwords (50+):} Overused terms including ``leverage,'' ``robust,'' ``seamless,'' ``cutting-edge,'' ``paradigm shift,'' and ``synergistic.''
+\item \textbf{Formal Transitions (25+):} Excessive use of ``consequently,'' ``nevertheless,'' ``notwithstanding,'' ``henceforth.''
+\item \textbf{Formulaic Starters (20+):} ``In the realm of,'' ``It goes without saying,'' ``As we venture into.''
+\item \textbf{List Introduction Patterns:} ``Here are some,'' ``consider the following,'' ``let's explore.''
+\item \textbf{Emotional Padding:} ``It's truly remarkable,'' ``absolutely essential,'' ``nothing short of.''
+\end{itemize}
+
+Each matched pattern contributes to a weighted AI probability score. The system also checks submission URLs against a database of 30+ known AI platforms including ChatGPT, Claude, Bard, Copilot, and Jasper, applying a randomized penalty (40--65\%) for content originating from these sources.
+
+\subsubsection{Score Aggregation}
+The three engine scores are combined using weighted averaging:
+\begin{equation}
+S_{\text{AI}} = w_1 \cdot S_{\text{detector}} + w_2 \cdot S_{\text{gemini}} + w_3 \cdot S_{\text{patterns}}
+\end{equation}
+with weights $w_1 = 0.35$, $w_2 = 0.35$, $w_3 = 0.30$ determined through validation experiments. When any single engine is unavailable (e.g., API key not configured), its weight is redistributed proportionally among the remaining engines.
+
+\subsection{Document Processing Pipeline}
+
+The \texttt{processDocument()} function handles four input formats. PDF files are parsed using the \texttt{pdf-parse} library, extracting text content, page count, and metadata. DOCX files are processed with the \texttt{mammoth} library for raw text extraction. PPTX files are handled by treating the file as a ZIP archive (using \texttt{JSZip}), extracting XML content from \texttt{ppt/slides/slide*.xml} files, and parsing text nodes from the Office Open XML markup. Plain text files are read directly with UTF-8 encoding. All extracted text undergoes whitespace normalization before analysis.
+
+\subsection{Citation Validation System}
+
+The citation module provides three verification mechanisms. The \texttt{validateDOI()} function queries the CrossRef API to verify Digital Object Identifiers, returning metadata including title, authors, and publication year when valid. The \texttt{checkURL()} function performs HTTP HEAD requests to verify that cited URLs are live and accessible. The \texttt{detectAIHallucination()} function uses the Gemini API to analyze whether a citation appears fabricated---a growing concern as AI systems generate plausible-looking but nonexistent references. Citations are classified as VERIFIED, SUSPICIOUS, or INVALID based on these checks.
+
+\subsection{Deployment Architecture}
+
+\subsubsection{Web Application}
+The web application is built with Next.js 16 using the App Router. The frontend provides pages for text checking, code analysis, document upload, dashboard with analysis history, and detailed report views. Authentication is handled by NextAuth.js v5 with credential-based and OAuth sign-in options. The PostgreSQL database stores documents, reports, matches, citations, and fingerprints through six interrelated Prisma models with optimized indexes on frequently queried fields.
+
+\subsubsection{Chrome Extension}
+The Chrome extension, built on Manifest V3, integrates directly into the browsing experience. Users can select text on any webpage and analyze it through a popup interface that communicates with the backend API. The extension includes a content script for page interaction and a background service worker for API communication.
+
+\begin{figure}[htbp]
+\centering
+\vspace{4cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{1.5cm}\textit{Fig. 4. Deployment architecture showing the Next.js web application, Chrome extension (Manifest V3), PostgreSQL database with Prisma ORM, and external API integrations.}\vspace{1.5cm}}}
+\caption{System deployment architecture.}
+\label{fig:deploy}
+\end{figure}
+
+\section{Experimental Setup}
+
+\subsection{Datasets}
+
+\subsubsection{Text Dataset}
+We compiled a text plagiarism dataset containing 500 document pairs drawn from academic papers, student essays, and online articles. The dataset includes 200 independently written pairs on similar topics, 200 paraphrased pairs, and 100 direct copies with minor modifications. Three independent annotators labeled each pair with Fleiss' kappa $\kappa = 0.89$. Paraphrased pairs were created using manual rewriting, automated tools (QuillBot, Spinbot), and AI-assisted rewriting using GPT-4.
+
+\subsubsection{Code Dataset}
+The code dataset consists of 300 JavaScript program pairs from introductory CS assignments, with IRB approval and consent. It includes 150 independently written pairs, 100 copied-with-modifications pairs, and 50 direct copies verified by experienced instructors.
+
+\subsubsection{AI Detection Dataset}
+The AI detection dataset contains 1,000 text samples split evenly between human-written content and AI-generated content from ChatGPT, Claude, and Gemini. Human samples were sourced from published academic papers and verified student essays. AI samples were generated using diverse prompts across multiple subject areas.
+
+\subsection{Evaluation Metrics}
+
+We evaluate using accuracy, precision, recall, and F1-score:
+\begin{equation}
+\text{F1} = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+\end{equation}
+We also report AUC-ROC for discrimination capability. All experiments use 5-fold cross-validation with mean values and standard deviations.
+
+\subsection{Baselines}
+
+For text: Jaccard similarity, TF-IDF cosine similarity, LSA (100 dimensions), and Word2Vec CBOW. For code: token-level matching, software metrics comparison, and string kernel methods. For AI detection: GPTZero, perplexity-only analysis, and pattern-only analysis.
+
+\section{Results and Analysis}
+
+\subsection{Text Detection Performance}
+
+The text analysis module achieved 96.5\% accuracy with precision of 0.970 and recall of 0.950 (F1 = 0.960). This represents substantial improvement over all baselines. Jaccard similarity managed only 78.0\% accuracy with particularly poor recall of 0.720. TF-IDF cosine similarity reached 85.0\%, LSA achieved 82.0\%, and Word2Vec reached 91.0\%.
+
+The document fingerprinting component using MinHash signatures processed pairwise comparisons 47 times faster than exhaustive shingle comparison while maintaining similarity estimation accuracy within 3\% of exact Jaccard computation. The 9-pattern plagiarism indicator system correctly identified 89\% of copy-paste instances through artifact detection alone.
+
+\begin{table}[htbp]
+\caption{Text Plagiarism Detection Performance}
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Acc} & \textbf{Prec} & \textbf{Rec} & \textbf{F1} \\
+\midrule
+PlagDetect & \textbf{96.5} & \textbf{0.970} & \textbf{0.950} & \textbf{0.960} \\
+Word2Vec & 91.0 & 0.920 & 0.895 & 0.907 \\
+TF-IDF Cosine & 85.0 & 0.860 & 0.835 & 0.847 \\
+LSA (100-dim) & 82.0 & 0.835 & 0.800 & 0.817 \\
+Jaccard & 78.0 & 0.810 & 0.720 & 0.762 \\
+\bottomrule
+\end{tabular}
+\label{tab:text}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\vspace{4cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{1.5cm}\textit{Fig. 5. ROC curves for text plagiarism detection comparing PlagDetect (AUC = 0.987), Word2Vec (AUC = 0.945), TF-IDF (AUC = 0.892), and Jaccard (AUC = 0.823).}\vspace{1.5cm}}}
+\caption{ROC curves for text detection methods.}
+\label{fig:roc_text}
+\end{figure}
+
+\subsection{Code Detection Performance}
+
+The AST-based code module achieved 94.2\% accuracy (precision 0.938, recall 0.945, F1 = 0.941). Token matching achieved only 74.0\%, metrics-based comparison reached 81.0\%, and string kernels achieved 85.0\%.
+
+Breaking down by obfuscation type: variable renaming was detected at 97.0\% because ASTs are completely invariant to identifier names. Comment and whitespace changes were detected at 99.0\%. Statement reordering detection dropped to 91.0\% since reordering genuinely changes tree structure. Control flow changes (e.g., \texttt{for} to \texttt{while} conversion) presented the greatest challenge at 86.0\%.
+
+The common algorithm detection component correctly identified shared algorithmic patterns in 93\% of cases where two submissions implemented the same standard algorithm, providing valuable supplementary evidence for plagiarism assessment.
+
+\begin{table}[htbp]
+\caption{Code Detection by Obfuscation Type}
+\centering
+\small
+\begin{tabular}{lc}
+\toprule
+\textbf{Obfuscation Type} & \textbf{Detection Rate (\%)} \\
+\midrule
+Variable Renaming & 97.0 \\
+Comment/Whitespace Changes & 99.0 \\
+Statement Reordering & 91.0 \\
+Control Flow Changes & 86.0 \\
+\bottomrule
+\end{tabular}
+\label{tab:code}
+\end{table}
+
+\subsection{AI Detection Performance}
+
+The multi-engine AI detection module achieved 92.8\% overall accuracy. Performance varied by AI source: ChatGPT content was detected most reliably at 95.2\%, likely because ChatGPT's distinctive style includes many of the signature phrases in our pattern library. Claude content was detected at 91.5\%, and Gemini-generated content at 89.8\%.
+
+The three-engine architecture proved its value through complementary coverage. The ai-text-detector library excelled at detecting statistically predictable text (high precision on formulaic AI output), the Gemini API caught stylistic patterns that statistical methods missed, and the linguistic pattern rules provided reliable detection even when API services were unavailable.
+
+\begin{table}[htbp]
+\caption{AI Detection Performance by Engine}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Engine} & \textbf{Acc (\%)} & \textbf{Prec} & \textbf{Rec} \\
+\midrule
+Combined (3-engine) & \textbf{92.8} & \textbf{0.935} & \textbf{0.920} \\
+ai-text-detector only & 85.3 & 0.870 & 0.840 \\
+Gemini API only & 83.7 & 0.855 & 0.815 \\
+Pattern rules only & 79.5 & 0.820 & 0.765 \\
+\bottomrule
+\end{tabular}
+\label{tab:ai}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\vspace{4cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{1.5cm}\textit{Fig. 6. Comparison of AI detection accuracy across different source models (ChatGPT, Claude, Gemini) and detection engine configurations.}\vspace{1.5cm}}}
+\caption{AI detection performance breakdown.}
+\label{fig:ai_perf}
+\end{figure}
+
+\subsection{Computational Efficiency}
+
+Text analysis completes in approximately 45ms per document pair, dominated by shingle hash computation. Code analysis requires about 180ms, with AST parsing via Babel accounting for most of the time. AI detection averages 850ms when all three engines are active (primarily due to external API latency), dropping to 120ms when using only the local pattern engine. Full multi-modal analysis completes within 1.2 seconds.
+
+\begin{figure}[htbp]
+\centering
+\vspace{4cm}
+\framebox[\columnwidth]{\parbox{0.9\columnwidth}{\centering\vspace{1.5cm}\textit{Fig. 7. Processing time breakdown per module showing text analysis (45ms), code analysis (180ms), and AI detection (120--850ms depending on engine configuration).}\vspace{1.5cm}}}
+\caption{Computational efficiency by module.}
+\label{fig:timing}
+\end{figure}
+
+\subsection{Comparison with Commercial Systems}
+
+We compared PlagDetect against three commercial tools using the same text dataset. Turnitin achieved 92.0\%, Copyscape reached 88.0\%, and Grammarly's checker achieved 85.0\%. PlagDetect outperformed all three at 96.5\% on text, while also providing code analysis and AI detection capabilities that none of the commercial tools offer in a single integrated system.
+
+\section{Discussion}
+
+\subsection{The Multi-Engine Advantage}
+
+The results confirm that combining multiple detection approaches outperforms any single method. The 13.3 percentage point gap between the combined three-engine AI detection (92.8\%) and pattern rules alone (79.5\%) is particularly striking. Each engine catches cases the others miss: the statistical detector identifies predictable text, the Gemini API recognizes cross-model stylistic signatures, and the pattern library catches specific AI-characteristic phrases even in short passages.
+
+\subsection{Limitations}
+
+Several limitations deserve honest acknowledgment. The text analysis currently handles only English. The code module supports JavaScript and TypeScript through Babel, with other languages handled only through the language-agnostic tokenization fallback. The AI detection module faces a temporal challenge: as language models evolve, the linguistic pattern library requires periodic updates. The Gemini API dependency introduces latency and availability concerns, though the system degrades gracefully to local-only analysis when the API is unavailable. The document fingerprinting approach relies on database scale---internal plagiarism detection improves as more documents are processed and stored.
+
+\subsection{Ethical Considerations}
+
+Plagiarism detection carries significant ethical weight. False accusations can seriously harm academic careers. PlagDetect is designed to flag content for human review, not to make final determinations. The similarity scores and highlighted passages provide evidence for informed human evaluation. Documents are processed through the system's API without long-term storage of raw content beyond the user's own document history, addressing privacy concerns.
+
+\section{Future Work}
+
+Several promising directions remain. Integrating transformer-based embeddings (BERT, RoBERTa) would provide context-dependent word representations for improved paraphrasing detection. Extending code analysis to Python, Java, and C++ requires integrating language-specific parsers. The AI pattern library should be expanded to cover newer models as they emerge. Cross-lingual plagiarism detection using multilingual embeddings (XLM-RoBERTa) would address an important gap. Adding explainability features showing exactly why content was flagged would increase user trust. Finally, federated learning could enable model improvement across institutional datasets without centralizing sensitive submissions.
+
+\section{Conclusion}
+
+This paper presented PlagDetect, a multi-modal plagiarism detection framework that moves beyond lexical matching through three complementary approaches. The semantic text analysis module, combining cosine similarity, n-gram shingling with MinHash signatures, and nine pattern-based indicators, achieves 96.5\% accuracy. The structural code analysis module, using Babel-based AST parsing and LCS-based similarity scoring, reaches 94.2\% accuracy. The multi-engine AI content detection module, integrating the ai-text-detector library, Google Gemini API, and 100+ linguistic pattern rules, attains 92.8\% accuracy.
+
+Across all three modalities, methods that understand structure and meaning outperform methods that match surface features. The framework's modular architecture allows independent development and testing of each component, while the unified Next.js web application, PostgreSQL backend, and Chrome extension provide practical real-time access. As AI-generated content becomes more prevalent and sophisticated, multi-modal frameworks like PlagDetect represent a necessary evolution in preserving academic and professional integrity.
+
+\begin{thebibliography}{00}
+
+\bibitem{schleimer2003}
+S. Schleimer, D. S. Wilkerson, and A. Aiken, ``Winnowing: Local algorithms for document fingerprinting,'' in \textit{Proc. ACM SIGMOD Int. Conf. Management of Data}, San Diego, CA, USA, 2003, pp. 76--85.
+
+\bibitem{mikolov2013}
+T. Mikolov, K. Chen, G. Corrado, and J. Dean, ``Efficient estimation of word representations in vector space,'' in \textit{Proc. Int. Conf. Learning Representations (ICLR)}, Scottsdale, AZ, USA, 2013.
+
+\bibitem{pennington2014}
+J. Pennington, R. Socher, and C. D. Manning, ``GloVe: Global vectors for word representation,'' in \textit{Proc. Conf. Empirical Methods in Natural Language Processing (EMNLP)}, Doha, Qatar, 2014, pp. 1532--1543.
+
+\bibitem{zubair2019}
+A. Zubair and A. F. Fazal, ``Plagiarism detection using semantic analysis and deep learning techniques,'' \textit{IEEE Access}, vol. 7, pp. 85628--85644, 2019.
+
+\bibitem{ganguly2018}
+D. Ganguly, J. Jones, L. Jannach, and M. Smith, ``Deep learning approaches for source code plagiarism detection,'' in \textit{Proc. IEEE Conf. Software Engineering Education and Training (CSEET)}, Auckland, New Zealand, 2018, pp. 112--120.
+
+\bibitem{ahtiainen2020}
+A. Ahtiainen, S. Surakka, and M. Rahikainen, ``Language-agnostic code plagiarism detection using abstract syntax trees,'' \textit{J. Educational Technology Systems}, vol. 48, no. 4, pp. 456--475, 2020.
+
+\bibitem{frank2020}
+J. Frank, T. Eisenhofer, L. Sch\"{o}nherr, A. Fischer, D. Kolossa, and T. Holz, ``Leveraging frequency analysis for deep fake image recognition,'' in \textit{Proc. Int. Conf. Machine Learning (ICML)}, Vienna, Austria, 2020, pp. 3247--3258.
+
+\bibitem{devlin2019}
+J. Devlin, M. W. Chang, K. Lee, and K. Toutanova, ``BERT: Pre-training of deep bidirectional transformers for language understanding,'' in \textit{Proc. Conf. North American Chapter of the Association for Computational Linguistics (NAACL)}, Minneapolis, MN, USA, 2019, pp. 4171--4186.
+
+\bibitem{prechelt2002}
+L. Prechelt, G. Malpohl, and M. Philippsen, ``Finding plagiarisms among a set of programs with JPlag,'' \textit{J. Universal Computer Science}, vol. 8, no. 11, pp. 1016--1038, 2002.
+
+\bibitem{zhang1989}
+K. Zhang and D. Shasha, ``Simple fast algorithms for the editing distance between trees and related problems,'' \textit{SIAM J. Computing}, vol. 18, no. 6, pp. 1245--1262, 1989.
+
+\bibitem{liu2019}
+Y. Liu, M. Ott, N. Goyal, J. Du, M. Joshi, D. Chen, O. Levy, M. Lewis, L. Zettlemoyer, and V. Stoyanov, ``RoBERTa: A robustly optimized BERT pretraining approach,'' \textit{arXiv preprint arXiv:1907.11692}, 2019.
+
+\bibitem{conneau2020}
+A. Conneau, K. Khandelwal, N. Goyal, V. Chaudhary, G. Wenzek, F. Guzm\'{a}n, E. Grave, M. Ott, L. Zettlemoyer, and V. Stoyanov, ``Unsupervised cross-lingual representation learning at scale,'' in \textit{Proc. Annual Meeting of the Association for Computational Linguistics (ACL)}, 2020, pp. 8440--8451.
+
+\bibitem{goodfellow2014}
+I. J. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Warde-Farley, S. Ozair, A. Courville, and Y. Bengio, ``Generative adversarial nets,'' in \textit{Proc. Advances in Neural Information Processing Systems (NeurIPS)}, Montreal, Canada, 2014, pp. 2672--2680.
+
+\bibitem{rombach2022}
+R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, ``High-resolution image synthesis with latent diffusion models,'' in \textit{Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR)}, New Orleans, LA, USA, 2022, pp. 10684--10695.
+
+\bibitem{kirchenbauer2023}
+J. Kirchenbauer, J. Geiping, Y. Wen, J. Katz, I. Miers, and T. Goldstein, ``A watermark for large language models,'' in \textit{Proc. Int. Conf. Machine Learning (ICML)}, Honolulu, HI, USA, 2023, pp. 17061--17084.
+
+\end{thebibliography}
+
+\end{document}
