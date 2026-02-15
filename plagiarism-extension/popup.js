@@ -492,23 +492,84 @@ document.getElementById('verifyCodeBtn')?.addEventListener('click', async () => 
             });
 
             const originalityScore = data.originalityScore || 0;
-            const aiScore = data.aiAnalysis?.aiScore || 0;
+            const aiPct = data.aiGeneratedPercentage || 0;
+            const humanPct = data.humanWrittenPercentage || (100 - aiPct);
 
             let details = [];
-            if (aiScore > 30) details.push(`🤖 AI Pattern: ${aiScore}%`);
+
+            // Show detected language
+            if (data.language && data.language !== 'unknown') {
+                details.push(`🔤 Language: ${data.language.charAt(0).toUpperCase() + data.language.slice(1)}${data.languageDetection?.confidence ? ` (${data.languageDetection.confidence}% confidence)` : ''}`);
+            }
+
+            // Show AI generation percentage (KEY metric)
+            details.push(`🤖 AI Generated: ${aiPct}% | Human Written: ${humanPct}%`);
+            details.push(`📊 Originality: ${originalityScore}%`);
+
+            // Show AST analysis
+            if (data.astAnalysis) {
+                const ast = data.astAnalysis;
+                if (ast.genericVariableRatio > 0) {
+                    details.push(`🔬 AST: ${ast.genericVariableRatio}% generic variables, ${ast.uniqueIdentifiers} unique identifiers`);
+                }
+                if (ast.variableRenamingScore > 50) {
+                    details.push(`⚠️ AST: Variable renaming detected (${ast.variableRenamingScore}% uniform naming)`);
+                }
+            }
+
+            // Show Gemini analysis
+            if (data.geminiAnalysis) {
+                const gemini = data.geminiAnalysis;
+                if (gemini.isAIGenerated) {
+                    details.push(`🧠 Gemini: AI-generated (${gemini.aiConfidence}% confidence)`);
+                }
+                if (gemini.reasoning) {
+                    details.push(`💡 ${gemini.reasoning.substring(0, 200)}`);
+                }
+            }
+
+            // Show common algorithm matches
             if (data.commonAlgorithms?.length > 0) {
                 const algos = data.commonAlgorithms.map(a => `${a.algorithm} (${a.similarity}%)`).join(', ');
                 details.push(`📚 Matches: ${algos}`);
             }
+
+            // Show key issues
             if (data.issues?.length > 0) {
-                details.push(...data.issues.slice(0, 2));
+                const keyIssues = data.issues.filter(i =>
+                    i.startsWith('🔴') || i.startsWith('🤖') || i.startsWith('🧠') || i.startsWith('🔬') || i.startsWith('⚠')
+                ).slice(0, 4);
+                if (keyIssues.length > 0) details.push(...keyIssues);
             }
+
+            // Show explanation
+            if (data.explanation) {
+                details.push(`\n📝 ${data.explanation.substring(0, 300)}`);
+            }
+
             details.push(`📊 Verdict: ${(data.verdict || 'UNKNOWN').replace(/_/g, ' ')}`);
+
+            // Better status titles based on verdict
+            const isAIVerdict = data.verdict?.includes('AI_GENERATED');
+            let statusTitle, statusLevel;
+            if (isAIVerdict) {
+                statusTitle = `🤖 AI Generated Code (${aiPct}%)`;
+                statusLevel = aiPct >= 70 ? 'low' : 'medium';
+            } else if (originalityScore >= 75) {
+                statusTitle = '✅ Original Code';
+                statusLevel = 'high';
+            } else if (originalityScore >= 45) {
+                statusTitle = '⚠️ Some Similarity';
+                statusLevel = 'medium';
+            } else {
+                statusTitle = '❌ Likely Copied';
+                statusLevel = 'low';
+            }
 
             showResult(
                 originalityScore,
-                originalityScore >= 80 ? 'high' : originalityScore >= 50 ? 'medium' : 'low',
-                originalityScore >= 80 ? '✅ Original Code' : originalityScore >= 50 ? '⚠️ Some Similarity' : '❌ Likely Copied',
+                statusLevel,
+                statusTitle,
                 details.join('\n'),
                 data.verdict || 'UNKNOWN'
             );
