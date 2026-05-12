@@ -8,11 +8,13 @@ An all-in-one plagiarism detection platform that checks **text**, **code**, and 
 
 ---
 
+<div align="center">
+
 # 🎥 Demo Video
 
-[![Watch Demo](https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg)](https://drive.google.com/file/d/1YvXtXa0QhzmpGgj3TbofYekVVt9WTtxC/view?usp=sharing)
+https://www.loom.com/share/7a37c3b614f94bd4aa4b7ad98badfdf2
 
-Click the image above to watch the full project demo.
+</div>
 
 ---
 
@@ -38,26 +40,30 @@ Click the image above to watch the full project demo.
 - Node.js 18+
 - PostgreSQL database
 - Google Gemini API key
-- Serper API key (for web search)
+- Serper API key
 
 ---
 
-## 📦 Installation
+# 📦 Installation
 
-### 1. Clone the repository
+## 1. Clone the repository
 
 ```bash
 git clone https://github.com/yourusername/plagiarism-detector.git
 cd plagiarism-detector
 ```
 
-### 2. Install dependencies
+---
+
+## 2. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Set up environment variables
+---
+
+## 3. Configure environment variables
 
 ```bash
 cp .env.example .env
@@ -75,7 +81,7 @@ NEXTAUTH_URL="http://localhost:3000"
 
 ---
 
-### 4. Set up the database
+## 4. Set up database
 
 ```bash
 npx prisma generate
@@ -84,7 +90,7 @@ npx prisma db push
 
 ---
 
-### 5. Run the development server
+## 5. Run development server
 
 ```bash
 npm run dev
@@ -92,9 +98,7 @@ npm run dev
 
 ---
 
-### 6. Open the app
-
-Visit:
+## 6. Open application
 
 ```bash
 http://localhost:3000
@@ -117,11 +121,11 @@ The extension allows plagiarism and AI-content detection directly from any webpa
 
 ---
 
-## 📥 Installation Steps
+# 📥 Installation Steps
 
-### Step 1: Open Extensions Page
+## Step 1: Open Extensions Page
 
-Open:
+Open Chrome and visit:
 
 ```bash
 chrome://extensions/
@@ -133,16 +137,21 @@ Or:
 
 ---
 
-### Step 2: Enable Developer Mode
+## Step 2: Enable Developer Mode
 
-- Toggle ON "Developer mode" at the top-right.
+Enable the toggle at the top-right corner.
 
 ---
 
-### Step 3: Load Extension
+## Step 3: Load Extension
 
-- Click **Load unpacked**
-- Select:
+Click:
+
+```bash
+Load unpacked
+```
+
+Select:
 
 ```bash
 plagiarism-extension/
@@ -150,9 +159,9 @@ plagiarism-extension/
 
 ---
 
-### Step 4: Verify Installation
+## Step 4: Verify Installation
 
-You should see:
+You should now see:
 
 ```bash
 PlagDetect - AI Plagiarism Checker
@@ -160,22 +169,22 @@ PlagDetect - AI Plagiarism Checker
 
 ---
 
-### Step 5: Pin Extension
+## Step 5: Pin Extension
 
-- Click puzzle icon 🧩
-- Pin PlagDetect 📌
+- Click the puzzle icon 🧩
+- Pin the extension 📌
 
 ---
 
 # ⚠️ Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Extension not loading | Select `plagiarism-extension` folder |
+| Issue | Solution |
+|------|----------|
+| Extension not loading | Select correct extension folder |
 | Service worker failed | Refresh extension |
-| Cannot access page | Use regular websites |
-| Connection failed | Run backend server |
-| Icons missing | Verify icons folder exists |
+| Cannot access page | Use normal websites |
+| Backend connection failed | Run `npm run dev` |
+| Missing icons | Verify icons folder |
 
 ---
 
@@ -191,13 +200,13 @@ npm run dev
 
 3. Click extension icon
 
-4. Select:
+4. Click:
 
 ```bash
 📄 Analyze Full Page
 ```
 
-5. View results
+5. View AI and plagiarism analysis
 
 ---
 
@@ -220,7 +229,7 @@ npm run dev
 Analyze:
 - AI-generated content
 - SEO score
-- Generic AI patterns
+- Generic AI phrases
 - Content quality
 
 ---
@@ -233,7 +242,6 @@ Supports:
 - Java
 - C++
 - TypeScript
-- More
 
 Checks:
 - AST similarity
@@ -244,7 +252,7 @@ Checks:
 
 ## 🖼️ AI Image Detection
 
-Upload image and detect:
+Upload an image to detect:
 - Midjourney
 - DALL-E
 - Stable Diffusion
@@ -257,7 +265,7 @@ Upload image and detect:
 | Tab | Function |
 |-----|----------|
 | Text | Plagiarism detection |
-| Code | AI/code similarity |
+| Code | Code originality |
 | Image | AI image detection |
 
 ---
@@ -268,7 +276,7 @@ Upload image and detect:
 |------|---------|
 | 🟢 80%+ | Original |
 | 🟡 50-79% | Partial similarity |
-| 🔴 Below 50% | Likely copied/AI |
+| 🔴 Below 50% | Likely copied/AI-generated |
 
 ---
 
@@ -377,11 +385,11 @@ POST /api/analyze/image
 
 | Criteria | Highlights |
 |----------|------------|
-| Functionality | Stable full-stack architecture |
+| Functionality | Full-stack stable architecture |
 | Innovation | AST + AI detection |
-| UI/UX | Modern responsive design |
+| UI/UX | Responsive modern design |
 | Scalability | Modular APIs |
-| Creativity | Multi-modal plagiarism detection |
+| Creativity | Multi-modal detection |
 
 ---
 
@@ -398,7 +406,8 @@ start presentation.html
 # 🤝 Contributing
 
 1. Fork repository
-2. Create branch
+
+2. Create feature branch
 
 ```bash
 git checkout -b feature/amazing-feature
@@ -410,7 +419,7 @@ git checkout -b feature/amazing-feature
 git commit -m "Add amazing feature"
 ```
 
-4. Push changes
+4. Push branch
 
 ```bash
 git push origin feature/amazing-feature
@@ -430,8 +439,8 @@ Licensed under the MIT License.
 
 - Google Gemini API
 - Babel Parser
-- Next.js Team
 - Prisma
+- Next.js Team
 - Open Source Community
 
 ---
@@ -449,11 +458,11 @@ If you found this project useful:
 # 💡 Future Roadmap
 
 - AI watermark detection
-- Multi-language plagiarism support
+- Multi-language support
 - Enterprise dashboards
 - LMS integrations
 - VSCode extension
-- PDF/DOCX scanning
+- PDF/DOCX analysis
 - Semantic vector search
 
 ---
