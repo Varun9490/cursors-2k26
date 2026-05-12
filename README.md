@@ -10,15 +10,9 @@ An all-in-one plagiarism detection platform that checks **text**, **code**, and 
 
 <div align="center">
 
-# 🎥 Demo Video
+## 🎥 Demo Video
 
-<iframe 
-src="https://www.loom.com/embed/7a37c3b614f94bd4aa4b7ad98badfdf2" 
-frameborder="0" 
-allowfullscreen 
-width="100%" 
-height="500">
-</iframe>
+[![Watch Demo](https://cdn.loom.com/sessions/thumbnails/7a37c3b614f94bd4aa4b7ad98badfdf2-with-play.gif)](https://www.loom.com/share/7a37c3b614f94bd4aa4b7ad98badfdf2)
 
 </div>
 
