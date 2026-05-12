@@ -12,7 +12,7 @@ An all-in-one plagiarism detection platform that checks **text**, **code**, and 
 
 ## 🎥 Demo Video
 
-[![Watch Demo](https://cdn.loom.com/sessions/thumbnails/7a37c3b614f94bd4aa4b7ad98badfdf2-00001.gif)](https://www.loom.com/share/7a37c3b614f94bd4aa4b7ad98badfdf2)
+[![▶ Watch Demo on Loom](https://img.shields.io/badge/▶_Watch_Demo-Loom-00D4AC?style=for-the-badge&logo=loom)](https://www.loom.com/share/7a37c3b614f94bd4aa4b7ad98badfdf2)
 </div>
 
 ---
